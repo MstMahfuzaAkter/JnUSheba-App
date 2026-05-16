@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   Alert,
 } from "react-native";
+
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -16,30 +17,31 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface HeaderProps {
-  title: string;
-}
-
-export default function Header({ title }: HeaderProps) {
+export default function Header({ title }) {
   const [menuVisible, setMenuVisible] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState(null);
+
   const router = useRouter();
   const { height } = useWindowDimensions();
 
   const slideAnim = useRef(new Animated.Value(-500)).current;
 
+  // ================= LOAD USER SESSION =================
   useEffect(() => {
-    const checkUser = async () => {
+    const loadUser = async () => {
       const session = await AsyncStorage.getItem("user_session");
+
       if (session) {
         setUser(JSON.parse(session));
       } else {
         setUser(null);
       }
     };
-    checkUser();
+
+    loadUser();
   }, [menuVisible]);
 
+  // ================= MENU ANIMATION =================
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: menuVisible ? 0 : -500,
@@ -49,141 +51,337 @@ export default function Header({ title }: HeaderProps) {
     }).start();
   }, [menuVisible]);
 
-  const handleNavigate = (path: string) => {
+  const handleNavigate = (path) => {
     setMenuVisible(false);
     router.push(path);
   };
 
+  // ================= LOGOUT =================
   const handleLogout = async () => {
     setMenuVisible(false);
-    Alert.alert("Logout", "Are you sure you want to log out?", [
+
+    Alert.alert("Logout", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Logout", 
-        style: "destructive", 
+      {
+        text: "Logout",
+        style: "destructive",
         onPress: async () => {
           await AsyncStorage.removeItem("user_session");
           setUser(null);
           router.replace("/login");
-        } 
+        },
       },
     ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={["#1e3a8a", "#3b82f6"]} style={styles.headerContainer}>
+
+      {/* ================= TOP HEADER ================= */}
+      <LinearGradient colors={["#1e3a8a", "#3b82f6"]} style={styles.header}>
+
+        {/* MENU ICON */}
         <Pressable
-          style={styles.iconButton}
+          style={styles.iconBtn}
           onPress={() => setMenuVisible(!menuVisible)}
-          hitSlop={15}
         >
-          <FontAwesome name={menuVisible ? "times" : "bars"} size={22} color="#ffffff" />
+          <FontAwesome
+            name={menuVisible ? "times" : "bars"}
+            size={22}
+            color="#fff"
+          />
         </Pressable>
 
+        {/* TITLE */}
         <Text style={styles.title}>{title}</Text>
 
-        <Pressable 
-          style={styles.iconButton} 
-          onPress={() => handleNavigate(user ? "/profile" : "/login")}
-          hitSlop={15}
+        {/* PROFILE ICON */}
+        <Pressable
+          style={styles.iconBtn}
+          onPress={() =>
+            handleNavigate(user ? "/profile" : "/login")
+          }
         >
-          <FontAwesome name={user ? "user-circle" : "sign-in"} size={22} color="#ffffff" />
+          <FontAwesome
+            name={user ? "user-circle" : "sign-in"}
+            size={22}
+            color="#fff"
+          />
         </Pressable>
+
       </LinearGradient>
 
+      {/* ================= DROPDOWN MENU ================= */}
       {menuVisible && (
-        <View style={[styles.dropdownOverlay, { height }]}>
-          <TouchableOpacity activeOpacity={1} style={styles.dropdownBackground} onPress={() => setMenuVisible(false)} />
+        <View style={[styles.overlay, { height }]}>
 
-          <Animated.View style={[styles.dropdownMenuWrapper, { transform: [{ translateY: slideAnim }] }]}>
-            <BlurView intensity={60} tint="light" style={styles.dropdownMenu}>
-              
+          <TouchableOpacity
+            style={styles.backdrop}
+            onPress={() => setMenuVisible(false)}
+          />
+
+          <Animated.View
+            style={[
+              styles.menuWrapper,
+              { transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <BlurView intensity={60} tint="light" style={styles.menu}>
+
+              {/* ================= USER INFO ================= */}
               {user ? (
                 <>
-                  <TouchableOpacity style={styles.profileSummary} onPress={() => handleNavigate("/profile")}>
-                    <View style={styles.avatarPlaceholder}>
-                      <FontAwesome name="user" size={24} color="#1e3a8a" />
+                  <TouchableOpacity
+                    style={styles.userBox}
+                    onPress={() => handleNavigate("/profile")}
+                  >
+                    <View style={styles.avatar}>
+                      <FontAwesome name="user" size={22} color="#1e3a8a" />
                     </View>
+
                     <View>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <Text style={styles.userEmail}>{user.email}</Text>
+                      <Text style={styles.name}>{user.name}</Text>
+                      <Text style={styles.email}>{user.email}</Text>
                     </View>
-                    <FontAwesome name="chevron-right" size={12} color="#94a3b8" style={styles.chevron} />
+
+                    <FontAwesome
+                      name="chevron-right"
+                      size={12}
+                      color="#94a3b8"
+                      style={{ marginLeft: "auto" }}
+                    />
                   </TouchableOpacity>
+
                   <View style={styles.divider} />
                 </>
               ) : (
-                <View style={styles.guestHeader}>
-                   <Text style={styles.guestTitle}>Welcome to ShebaLink</Text>
-                   <Text style={styles.guestSub}>Login to access all services</Text>
+                <View style={styles.guestBox}>
+                  <Text style={styles.guestTitle}>
+                    Welcome to ShebaLink
+                  </Text>
+                  <Text style={styles.guestText}>
+                    Login to access all services
+                  </Text>
                 </View>
               )}
 
-              {/* Navigation Items */}
-              <MenuLink icon="home" label="Home" color="#4b83f2" onPress={() => handleNavigate("/")} />
-              
-              {/* --- DASHBOARD OPTION (Added) --- */}
+              {/* ================= MENU ITEMS ================= */}
+              <MenuItem
+                icon="home"
+                label="Home"
+                color="#4b83f2"
+                onPress={() => handleNavigate("/")}
+              />
+
               {user && (
-                <MenuLink icon="th-large" label="Dashboard" color="#0092b8" onPress={() => handleNavigate("/dashboard")} />
+                <MenuItem
+                  icon="th-large"
+                  label={
+                    user?.role === "admin"
+                      ? "Admin Dashboard"
+                      : user?.role === "provider"
+                        ? "Provider Dashboard"
+                        : user?.role === "student"
+                          ? "Student Dashboard"
+                          : "Dashboard"
+                  }
+                  color="#06b6d4"
+                  onPress={() => {
+                    if (user?.role === "admin") {
+                      handleNavigate("/admin-dashboard");
+
+                    } else if (user?.role === "provider") {
+                      handleNavigate("/provider-dashboard");
+
+                    } else if (user?.role === "student") {
+                      handleNavigate("/student-dashboard");
+
+                    } else {
+                      handleNavigate("/");
+                    }
+                  }}
+                />
               )}
 
-              <MenuLink icon="info-circle" label="About Platform" color="#10b981" onPress={() => handleNavigate("/about")} />
-              
+              <MenuItem
+                icon="info-circle"
+                label="About"
+                color="#10b981"
+                onPress={() => handleNavigate("/about")}
+              />
+
               {user ? (
                 <>
-                  <View style={styles.divider} />
-                  <MenuLink icon="gears" label="Settings" color="#64748b" onPress={() => handleNavigate("/settings")} />
-                  <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout}>
-                    <View style={[styles.iconBox, { backgroundColor: "#fef2f2" }]}>
-                      <FontAwesome name="sign-out" size={20} color="#ef4444" />
+                  <MenuItem
+                    icon="cogs"
+                    label="Settings"
+                    color="#64748b"
+                    onPress={() => handleNavigate("/settings")}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.logoutBtn}
+                    onPress={handleLogout}
+                  >
+                    <View style={[styles.iconBox, { backgroundColor: "#fee2e2" }]}>
+                      <FontAwesome name="sign-out" size={18} color="#ef4444" />
                     </View>
-                    <Text style={[styles.menuText, { color: "#ef4444" }]}>Logout</Text>
+
+                    <Text style={styles.logoutText}>Logout</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   <View style={styles.divider} />
-                  <MenuLink icon="sign-in" label="Login / Register" color="#1e3a8a" onPress={() => handleNavigate("/login")} />
+                  <MenuItem
+                    icon="sign-in"
+                    label="Login"
+                    color="#1e3a8a"
+                    onPress={() => handleNavigate("/login")}
+                  />
                 </>
               )}
+
             </BlurView>
           </Animated.View>
+
         </View>
       )}
     </SafeAreaView>
   );
 }
 
-const MenuLink = ({ icon, label, color, onPress }: any) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <View style={[styles.iconBox, { backgroundColor: `${color}10` }]}>
-      <FontAwesome name={icon} size={18} color={color} />
-    </View>
-    <Text style={styles.menuText}>{label}</Text>
-  </TouchableOpacity>
-);
+// ================= MENU ITEM =================
+const MenuItem = ({ icon, label, color, onPress }) => {
+  return (
+    <TouchableOpacity style={styles.item} onPress={onPress}>
+      <View style={[styles.iconBox, { backgroundColor: color + "20" }]}>
+        <FontAwesome name={icon} size={18} color={color} />
+      </View>
+      <Text style={styles.itemText}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { zIndex: 100 },
-  headerContainer: { height: 70, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, elevation: 4 },
-  title: { color: "#f8fafc", fontSize: 18, fontWeight: "700" },
-  iconButton: { padding: 5, width: 40, alignItems: "center" },
-  dropdownOverlay: { position: "absolute", top: 70, left: 0, right: 0, zIndex: 100 },
-  dropdownBackground: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15, 23, 42, 0.4)" },
-  dropdownMenuWrapper: { overflow: "hidden" },
-  dropdownMenu: { backgroundColor: "rgba(255, 255, 255, 0.95)", borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingVertical: 15 },
-  profileSummary: { flexDirection: "row", alignItems: "center", paddingHorizontal: 22, paddingVertical: 15 },
-  avatarPlaceholder: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#e2e8f0", justifyContent: "center", alignItems: "center", marginRight: 15 },
-  userName: { fontSize: 18, fontWeight: "800", color: "#1e2937" },
-  userEmail: { fontSize: 13, color: "#64748b" },
-  guestHeader: { paddingHorizontal: 22, paddingVertical: 15 },
-  guestTitle: { fontSize: 18, fontWeight: "800", color: "#1e3a8a" },
-  guestSub: { fontSize: 13, color: "#64748b" },
-  chevron: { marginLeft: "auto" },
-  divider: { height: 1, backgroundColor: "#f1f5f9", marginVertical: 10, marginHorizontal: 22 },
-  menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 22 },
-  logoutItem: { marginTop: 5 },
-  iconBox: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center", marginRight: 16 },
-  menuText: { color: "#334155", fontSize: 16, fontWeight: "600" },
+
+  header: {
+    height: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+  },
+
+  title: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  iconBtn: {
+    width: 40,
+    alignItems: "center",
+  },
+
+  overlay: {
+    position: "absolute",
+    top: 70,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+
+  menuWrapper: {
+    overflow: "hidden",
+  },
+
+  menu: {
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingVertical: 15,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+  },
+
+  userBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+  },
+
+  avatar: {
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: "#e2e8f0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  name: { fontSize: 16, fontWeight: "700" },
+  email: { fontSize: 12, color: "#64748b" },
+
+  guestBox: {
+    padding: 18,
+  },
+
+  guestTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1e3a8a",
+  },
+
+  guestText: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#e2e8f0",
+    marginVertical: 10,
+    marginHorizontal: 15,
+  },
+
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  itemText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+  },
+
+  logoutText: {
+    color: "#ef4444",
+    fontWeight: "700",
+    marginLeft: 12,
+  },
 });

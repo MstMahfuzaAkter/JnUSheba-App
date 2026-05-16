@@ -6,6 +6,7 @@ import {
   Pressable,
   Platform,
 } from "react-native";
+
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,12 +19,16 @@ export default function Footer({
 }: BottomTabBarProps) {
   return (
     <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
+      
+      {/* ================= FOOTER BACKGROUND ================= */}
       <LinearGradient
-        colors={["#111827", "#1f2937"]}
-        style={styles.footerContainer}
+        colors={["#0f172a", "#1e293b"]}
+        style={styles.container}
       >
-        {state.routes.map((route: any, index: number) => {
+
+        {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
+
           const label =
             options.tabBarLabel !== undefined
               ? options.tabBarLabel
@@ -41,93 +46,100 @@ export default function Footer({
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate({ name: route.name, merge: true });
+              navigation.navigate(route.name);
             }
           };
 
-          // Icon mapping
+          // ================= ICON MAPPING =================
           let iconName = "circle";
+
           if (route.name === "index") iconName = "home";
-          if (route.name === "profile") iconName = "user";
           if (route.name === "services") iconName = "cogs";
+          if (route.name === "bookings") iconName = "calendar";
+          if (route.name === "dashboard") iconName = "th-large";
+          if (route.name === "profile") iconName = "user";
           if (route.name === "about") iconName = "info-circle";
 
           return (
             <Pressable
-              key={index}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarTestID}
+              key={route.key}
               onPress={onPress}
-              style={styles.tabItem}
+              style={styles.tab}
             >
+
+              {/* ================= ICON ================= */}
               <View
                 style={[
-                  styles.iconWrapper,
-                  isFocused && styles.activeIconWrapper,
+                  styles.iconBox,
+                  isFocused && styles.activeIconBox,
                 ]}
               >
                 <FontAwesome
-                  name={iconName as any}
-                  size={22}
-                  color={isFocused ? "#ffffff" : "#9ca3af"}
+                  name={iconName}
+                  size={20}
+                  color={isFocused ? "#ffffff" : "#94a3b8"}
                 />
               </View>
+
+              {/* ================= LABEL ================= */}
               <Text
                 style={[
-                  styles.tabLabel,
-                  { color: isFocused ? "#ffffff" : "#9ca3af" },
+                  styles.label,
+                  { color: isFocused ? "#ffffff" : "#94a3b8" },
                 ]}
               >
                 {label}
               </Text>
+
             </Pressable>
           );
         })}
+
       </LinearGradient>
     </SafeAreaView>
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#111827",
+    backgroundColor: "#0f172a",
   },
-  footerContainer: {
+
+  container: {
     flexDirection: "row",
-    height: Platform.OS === "ios" ? 75 : 65,
-    paddingBottom: Platform.OS === "ios" ? 15 : 10,
+    height: Platform.OS === "ios" ? 78 : 65,
+    paddingBottom: Platform.OS === "ios" ? 15 : 8,
     paddingTop: 10,
     borderTopWidth: 0,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
+    elevation: 10,
   },
-  tabItem: {
+
+  tab: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  iconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+
+  iconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
-  activeIconWrapper: {
-    backgroundColor: "#2563eb", // Active tab highlight
-    shadowColor: "#2563eb",
+
+  activeIconBox: {
+    backgroundColor: "#3b82f6",
+    shadowColor: "#3b82f6",
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 6,
   },
-  tabLabel: {
-    fontSize: 12,
-    marginTop: 4,
+
+  label: {
+    fontSize: 11,
+    marginTop: 3,
     fontWeight: "600",
-    letterSpacing: 0.3,
   },
 });
