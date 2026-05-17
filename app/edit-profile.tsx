@@ -22,12 +22,17 @@ export default function EditProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [user, setUser] = useState(null);
+
   const [name, setName] = useState("");
   const [dept, setDept] = useState("");
   const [studentId, setStudentId] = useState("");
   const [phone, setPhone] = useState("");
   const [profileImage, setProfileImage] = useState(null);
 
+  const [role, setRole] = useState("");
+
+  // ================= LOAD USER =================
   useEffect(() => {
     loadUserData();
   }, []);
@@ -35,13 +40,17 @@ export default function EditProfileScreen() {
   const loadUserData = async () => {
     try {
       const session = await AsyncStorage.getItem("user_session");
+
       if (session) {
-        const user = JSON.parse(session);
-        setName(user.name || "");
-        setDept(user.dept || "");
-        setStudentId(user.studentId || "");
-        setPhone(user.phone || "");
-        setProfileImage(user.profileImage || null);
+        const u = JSON.parse(session);
+
+        setUser(u);
+        setName(u.name || "");
+        setDept(u.dept || "");
+        setStudentId(u.studentId || "");
+        setPhone(u.phone || "");
+        setProfileImage(u.profileImage || null);
+        setRole(u.role || "student");
       }
     } catch (e) {
       console.log(e);
@@ -50,17 +59,17 @@ export default function EditProfileScreen() {
     }
   };
 
+  // ================= IMAGE PICK =================
   const pickImage = async () => {
     const { status } =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert("Permission required", "Please allow gallery access.");
+      Alert.alert("Permission required");
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.6,
@@ -71,35 +80,27 @@ export default function EditProfileScreen() {
     }
   };
 
+  // ================= SAVE TO BACKEND =================
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert("Validation Error", "Name cannot be empty!");
+      Alert.alert("Error", "Name required");
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const session = await AsyncStorage.getItem("user_session");
-
-      if (!session) {
-        Alert.alert("Error", "Session expired");
-        return;
-      }
-
-      const oldData = JSON.parse(session);
-
       const updatedUser = {
         name: name.trim(),
         dept: dept.trim(),
         studentId: studentId.trim(),
         phone: phone.trim(),
         profileImage,
+        role, // ✅ SAFE ROLE SUPPORT
       };
 
-      // 🔥 BACKEND API CALL
-      const response = await fetch(
-        `https://junsheba.vercel.app//users/${oldData.email}`,
+      const res = await fetch(
+        `https://junsheba.vercel.app/users/${user.email}`,
         {
           method: "PUT",
           headers: {
@@ -109,23 +110,20 @@ export default function EditProfileScreen() {
         }
       );
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        throw new Error(data.message);
+      if (!res.ok) {
+        throw new Error(data.message || "Update failed");
       }
 
-      // 🔥 UPDATE LOCAL SESSION
+      // ================= UPDATE SESSION =================
       await AsyncStorage.setItem(
         "user_session",
         JSON.stringify(data.user)
       );
 
-      Alert.alert("Success", "Profile updated successfully 🎉", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
+      Alert.alert("Success", "Profile updated 🎉", [
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
       Alert.alert("Error", error.message);
@@ -133,6 +131,7 @@ export default function EditProfileScreen() {
       setIsSaving(false);
     }
   };
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -146,7 +145,6 @@ export default function EditProfileScreen() {
       <Stack.Screen
         options={{
           title: "Edit Profile",
-          headerShadowVisible: false,
           headerRight: () => (
             <TouchableOpacity onPress={handleSave} disabled={isSaving}>
               {isSaving ? (
@@ -159,47 +157,46 @@ export default function EditProfileScreen() {
         }}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        {/* PROFILE IMAGE */}
+      <ScrollView contentContainerStyle={styles.content}>
+
+        {/* ================= PROFILE IMAGE ================= */}
         <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarBox}>
+          <TouchableOpacity onPress={pickImage}>
             {profileImage ? (
-              <Image
-                source={{ uri: profileImage }}
-                style={styles.avatar}
-              />
+              <Image source={{ uri: profileImage }} style={styles.avatar} />
             ) : (
               <FontAwesome name="user-circle" size={110} color="#cbd5e1" />
             )}
-
-            <View style={styles.cameraBadge}>
-              <FontAwesome name="camera" size={14} color="#fff" />
-            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={pickImage}>
-            <Text style={styles.changeText}>Change Photo</Text>
-          </TouchableOpacity>
+          <Text style={styles.roleText}>
+            Role: {role.toUpperCase()}
+          </Text>
         </View>
 
-        {/* FORM */}
-        <View style={styles.form}>
-          <Input label="Full Name" value={name} onChange={setName} icon="user" />
-          <Input label="Department" value={dept} onChange={setDept} icon="graduation-cap" />
+        {/* ================= ROLE DISPLAY (NO EDIT ABUSE) ================= */}
+        <View style={styles.roleBox}>
+          <Text style={styles.roleLabel}>
+            Account Type: {role}
+          </Text>
+        </View>
+
+        {/* ================= FORM ================= */}
+        <Input label="Full Name" value={name} onChange={setName} icon="user" />
+        <Input label="Department" value={dept} onChange={setDept} icon="graduation-cap" />
+
+        {role === "student" && (
           <Input label="Student ID" value={studentId} onChange={setStudentId} icon="id-card" />
-          <Input label="Phone" value={phone} onChange={setPhone} icon="phone" />
-        </View>
+        )}
+
+        <Input label="Phone" value={phone} onChange={setPhone} icon="phone" />
 
       </ScrollView>
     </View>
   );
 }
 
-/* ================= INPUT COMPONENT ================= */
-
+/* ================= INPUT ================= */
 const Input = ({ label, value, onChange, icon }) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
@@ -209,8 +206,7 @@ const Input = ({ label, value, onChange, icon }) => (
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder={`Enter ${label}`}
-        placeholderTextColor="#cbd5e1"
+        placeholder={label}
         style={styles.input}
       />
     </View>
@@ -218,12 +214,8 @@ const Input = ({ label, value, onChange, icon }) => (
 );
 
 /* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
 
   loading: {
     flex: 1,
@@ -234,7 +226,6 @@ const styles = StyleSheet.create({
   saveBtn: {
     color: "#3b82f6",
     fontWeight: "800",
-    fontSize: 16,
     marginRight: 10,
   },
 
@@ -242,88 +233,59 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
-  /* AVATAR */
   avatarSection: {
     alignItems: "center",
-    marginVertical: 25,
-  },
-
-  avatarBox: {
-    position: "relative",
+    marginVertical: 20,
   },
 
   avatar: {
     width: 110,
     height: 110,
     borderRadius: 55,
-    borderWidth: 3,
-    borderColor: "#e2e8f0",
   },
 
-  cameraBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#3b82f6",
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: "#fff",
-  },
-
-  changeText: {
+  roleText: {
     marginTop: 10,
-    color: "#3b82f6",
     fontWeight: "700",
+    color: "#0f172a",
   },
 
-  /* FORM */
-  form: {
-    gap: 18,
+  roleBox: {
+    padding: 10,
+    backgroundColor: "#eef2ff",
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+
+  roleLabel: {
+    fontWeight: "700",
+    color: "#4338ca",
+    textAlign: "center",
   },
 
   inputGroup: {
-    marginBottom: 5,
+    marginBottom: 10,
   },
 
   label: {
     fontSize: 12,
     fontWeight: "800",
     color: "#64748b",
-    marginBottom: 8,
-    textTransform: "uppercase",
+    marginBottom: 6,
   },
 
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    paddingHorizontal: 15,
-    height: 55,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
-    gap: 10,
   },
 
   input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-
-  note: {
-    textAlign: "center",
-    marginTop: 30,
-    fontSize: 12,
-    color: "#94a3b8",
+    marginLeft: 10,
   },
 });

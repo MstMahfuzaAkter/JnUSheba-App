@@ -21,94 +21,93 @@ export default function LoginScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // backend e password verify na thakleo UI compatible rakhlam
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ===================== AUTO LOGIN CHECK =====================
+  // ================= AUTO LOGIN =================
   useEffect(() => {
-  const checkSession = async () => {
-    const session = await AsyncStorage.getItem("user_session");
+    const checkSession = async () => {
+      const session = await AsyncStorage.getItem("user_session");
 
-    if (session) {
-      const user = JSON.parse(session);
+      if (session) {
+        const user = JSON.parse(session);
 
-      if (user.role === "admin") {
-        router.replace("/admin-dashboard");
-      } else if (user.role === "student") {
-        router.replace("/student-dashboard");
-      } else {
-        router.replace("/(tabs)");
+        redirectByRole(user.role);
       }
+    };
+
+    checkSession();
+  }, []);
+
+  // ================= ROLE REDIRECT FUNCTION =================
+  const redirectByRole = (role) => {
+    if (role === "admin") {
+      router.replace("/admin-dashboard");
+    } else if (role === "provider") {
+      router.replace("/provider-dashboard");
+    } else {
+      router.replace("/student-dashboard");
     }
   };
 
-  checkSession();
-}, []);
-  // ===================== LOGIN FUNCTION =====================
+  // ================= LOGIN =================
   const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert("Error", "Email and password required");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch(
-      `https://junsheba.vercel.app/users/${email}`
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      Alert.alert("Login Failed", data.message || "User not found");
-      setLoading(false);
+    if (!email || !password) {
+      Alert.alert("Error", "Email and password required");
       return;
     }
 
-    // ================= PASSWORD CHECK =================
-    if (data.password && data.password !== password) {
-      Alert.alert("Error", "Wrong password");
+    setLoading(true);
+
+    try {
+      const res = await fetch(
+        `https://junsheba.vercel.app/users/${email}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        Alert.alert("Login Failed", data.message || "User not found");
+        setLoading(false);
+        return;
+      }
+
+      // ❗ PASSWORD CHECK (basic)
+      if (data.password && data.password !== password) {
+        Alert.alert("Error", "Wrong password");
+        setLoading(false);
+        return;
+      }
+
+      // ================= SESSION =================
+      const sessionData = {
+        uid: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role || "student",
+        studentId: data.studentId || null,
+        profileImage: data.profileImage || null,
+      };
+
+      await AsyncStorage.setItem(
+        "user_session",
+        JSON.stringify(sessionData)
+      );
+
+      Alert.alert("Success", "Login successful 🎉");
+
+      // ================= REDIRECT =================
+      redirectByRole(data.role);
+
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Server not reachable");
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    // ================= SESSION =================
-    const sessionData = {
-      uid: data._id,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      studentId: data.studentId,
-      profileImage: data.profileImage,
-    };
-
-    await AsyncStorage.setItem(
-      "user_session",
-      JSON.stringify(sessionData)
-    );
-
-    Alert.alert("Success", "Login successful 🎉");
-
-    // ================= ROLE BASED DASHBOARD =================
-    if (data.role === "admin") {
-      router.replace("/admin-dashboard");
-    } else if (data.role === "student") {
-      router.replace("/student-dashboard");
-    } else {
-      router.replace("/(tabs)");
-    }
-
-  } catch (error) {
-    console.log(error);
-    Alert.alert("Error", "Server not reachable");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ===================== UI =====================
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -116,6 +115,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.card}>
 
+          {/* LOGO */}
           <View style={styles.logoBox}>
             <Ionicons name="log-in-outline" size={34} color="#0A84FF" />
           </View>
@@ -171,19 +171,6 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* DIVIDER */}
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.line} />
-          </View>
-
-          {/* GOOGLE (UI ONLY) */}
-          <TouchableOpacity style={styles.googleBtn}>
-            <AntDesign name="google" size={20} color="#DB4437" />
-            <Text style={styles.googleText}>Continue with Google</Text>
-          </TouchableOpacity>
-
           {/* REGISTER */}
           <TouchableOpacity onPress={() => router.push("/register")}>
             <Text style={styles.footerText}>
@@ -200,7 +187,7 @@ export default function LoginScreen() {
   );
 }
 
-// ===================== STYLES =====================
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f4f6fb" },
   scrollContainer: { flexGrow: 1, justifyContent: "center", padding: 20 },
@@ -280,39 +267,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
-  },
-
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#eee",
-  },
-
-  orText: {
-    marginHorizontal: 10,
-    fontSize: 12,
-    color: "#aaa",
-  },
-
-  googleBtn: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#eee",
-    height: 55,
-    borderRadius: 15,
-    gap: 10,
-  },
-
-  googleText: {
-    fontWeight: "600",
   },
 
   footerText: {

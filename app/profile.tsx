@@ -7,7 +7,6 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Dimensions,
 } from "react-native";
 
 import { Text } from "react-native";
@@ -16,16 +15,18 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { width } = Dimensions.get("window");
+const API = "https://junsheba.vercel.app";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [greeting, setGreeting] = useState("");
 
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // ================= LOAD USER =================
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
       try {
         const session = await AsyncStorage.getItem("user_session");
 
@@ -36,27 +37,25 @@ export default function ProfileScreen() {
 
         const parsed = JSON.parse(session);
         setUser(parsed);
-        setGreeting(getGreeting());
-      } catch (error) {
-        await AsyncStorage.removeItem("user_session");
-        router.replace("/login");
+
+        // ADMIN STATS ONLY FOR ADMIN
+        if (parsed.role === "admin") {
+          const res = await fetch(`${API}/admin-stats`);
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch (err) {
+        console.log(err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    checkAuth();
+    init();
   }, []);
 
-  const getGreeting = () => {
-    const hours = new Date().getHours();
-    if (hours < 12) return "Good Morning";
-    if (hours < 17) return "Good Afternoon";
-    return "Good Evening";
-  };
-
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Logout", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
@@ -69,9 +68,9 @@ export default function ProfileScreen() {
     ]);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color="#3b82f6" />
       </View>
     );
@@ -80,293 +79,217 @@ export default function ProfileScreen() {
   if (!user) return null;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Stack.Screen
-        options={{
-          title: "",
-          headerTransparent: true,
-          headerRight: () => (
-            <TouchableOpacity style={styles.headerActionBtn}>
-              <FontAwesome name="bell-o" size={18} color="#fff" />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+    <ScrollView style={styles.container}>
 
-      {/* HEADER */}
+      <Stack.Screen options={{ title: "Dashboard" }} />
+
+      {/* ================= HEADER ================= */}
       <LinearGradient
         colors={["#0f172a", "#1e3a8a", "#3b82f6"]}
-        style={styles.headerBackground}
+        style={styles.header}
       >
-        <View style={styles.profileHeader}>
-          <Text style={styles.greetingText}>{greeting},</Text>
+        <Image
+          source={{
+            uri: user.profileImage
+              ? user.profileImage
+              : `https://ui-avatars.com/api/?name=${user.name}`,
+          }}
+          style={styles.avatar}
+        />
 
-          <View style={styles.avatarWrapper}>
-            <View style={styles.statusRing} />
+        <Text style={styles.name}>{user.name}</Text>
 
-            <Image
-              source={{
-                uri: user.profileImage
-                  ? user.profileImage
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      user.name
-                    )}`,
-              }}
-              style={styles.avatar}
-            />
-          </View>
-
-          <Text style={styles.userName}>{user.name}</Text>
-
-          <Text style={styles.userRole}>
-            {user.role || "User"} • ID: {user.studentId || "N/A"}
-          </Text>
-        </View>
+        <Text style={styles.role}>
+          {user.role.toUpperCase()} DASHBOARD
+        </Text>
       </LinearGradient>
 
-      {/* STATS */}
-      <View style={styles.statsCard}>
-        <StatItem label="Used Services" value="14" icon="rocket" />
-        <View style={styles.statDivider} />
-        <StatItem label="Reward Points" value="520" icon="diamond" />
-      </View>
+      {/* ================= ADMIN PANEL ================= */}
+      {user.role === "admin" && stats && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Admin Analytics</Text>
 
-      {/* SETTINGS */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
+          <Stat label="Users" value={stats.totalUsers} />
+          <Stat label="Students" value={stats.totalStudents} />
+          <Stat label="Providers" value={stats.totalProviders} />
+          <Stat label="Services" value={stats.totalServices} />
+          <Stat label="Bookings" value={stats.totalBookings} />
+        </View>
+      )}
 
-        <SettingLink
-          icon="user-o"
-          label="Edit Profile"
+      {/* ================= PROVIDER ================= */}
+      {user.role === "provider" && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Provider Panel</Text>
+
+          <Action
+            icon="plus"
+            title="Add Service"
+            onPress={() => router.push("/add-service")}
+          />
+
+          <Action
+            icon="list"
+            title="My Services"
+            onPress={() => router.push("/my-services")}
+          />
+
+          <Action
+            icon="calendar"
+            title="Bookings"
+            onPress={() => router.push("/provider-bookings")}
+          />
+        </View>
+      )}
+
+      {/* ================= STUDENT ================= */}
+      {user.role === "student" && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Student Panel</Text>
+
+          <Action
+            icon="search"
+            title="Find Services"
+            onPress={() => router.push("/services")}
+          />
+
+          <Action
+            icon="calendar"
+            title="My Bookings"
+            onPress={() => router.push("/my-bookings")}
+          />
+
+          <Action
+            icon="history"
+            title="History"
+            onPress={() => router.push("/history")}
+          />
+        </View>
+      )}
+
+      {/* ================= SETTINGS ================= */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Settings</Text>
+
+        <Action
+          icon="user"
+          title="Edit Profile"
           onPress={() => router.push("/edit-profile")}
         />
-        <SettingLink icon="history" label="Service History" onPress={() => {}} />
-        <SettingLink icon="lock" label="Privacy & Security" onPress={() => {}} />
+
+        <Action
+          icon="lock"
+          title="Security"
+          onPress={() => {}}
+        />
       </View>
 
-      {/* SUPPORT */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <SettingLink icon="question-circle-o" label="Help Center" onPress={() => {}} />
-      </View>
-
-      {/* LOGOUT */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <LinearGradient
-          colors={["#fee2e2", "#ffffff"]}
-          style={styles.logoutGradient}
-        >
-          <FontAwesome name="sign-out" size={18} color="#ef4444" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </LinearGradient>
+      {/* ================= LOGOUT ================= */}
+      <TouchableOpacity style={styles.logout} onPress={handleLogout}>
+        <Text style={{ color: "red", fontWeight: "800" }}>
+          Logout
+        </Text>
       </TouchableOpacity>
-
-      <Text style={styles.versionText}>Version 1.0.4</Text>
     </ScrollView>
   );
 }
 
 /* ================= COMPONENTS ================= */
 
-const StatItem = ({ label, value, icon }) => (
-  <View style={styles.statItem}>
-    <View style={styles.statIconCircle}>
-      <FontAwesome name={icon} size={14} color="#3b82f6" />
-    </View>
+const Stat = ({ label, value }) => (
+  <View style={styles.stat}>
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
 
-const SettingLink = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.settingItem} onPress={onPress}>
-    <View style={styles.iconWrapper}>
-      <FontAwesome name={icon} size={18} color="#1e3a8a" />
-    </View>
-    <Text style={styles.settingLabel}>{label}</Text>
-    <FontAwesome name="angle-right" size={18} color="#94a3b8" />
+const Action = ({ icon, title, onPress }) => (
+  <TouchableOpacity style={styles.action} onPress={onPress}>
+    <FontAwesome name={icon} size={18} color="#3b82f6" />
+    <Text style={styles.actionText}>{title}</Text>
   </TouchableOpacity>
 );
 
 /* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f1f5f9",
-  },
+  container: { flex: 1, backgroundColor: "#f1f5f9" },
 
-  loadingContainer: {
+  loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
 
-  headerActionBtn: {
-    marginRight: 15,
-    padding: 8,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 12,
-  },
-
-  headerBackground: {
-    height: 340,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    paddingTop: 60,
-  },
-
-  profileHeader: {
+  header: {
+    padding: 30,
     alignItems: "center",
-  },
-
-  greetingText: {
-    color: "#e2e8f0",
-    fontSize: 16,
-  },
-
-  avatarWrapper: {
-    marginTop: 20,
-  },
-
-  statusRing: {
-    position: "absolute",
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 2,
-    borderColor: "#60a5fa",
-    opacity: 0.4,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 
   avatar: {
-    width: 115,
-    height: 115,
-    borderRadius: 60,
-    borderWidth: 4,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
     borderColor: "#fff",
   },
 
-  userName: {
+  name: {
     color: "#fff",
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: "800",
     marginTop: 10,
-    letterSpacing: 0.5,
   },
 
-  userRole: {
+  role: {
     color: "#cbd5e1",
-    fontSize: 13,
+    fontSize: 12,
   },
 
-  statsCard: {
-    flexDirection: "row",
-    backgroundColor: "#ffffff",
-    marginHorizontal: 20,
-    marginTop: -40,
-    borderRadius: 25,
-    padding: 22,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 6,
-  },
-
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-
-  statIconCircle: {
-    backgroundColor: "#eff6ff",
-    padding: 8,
-    borderRadius: 10,
-  },
-
-  statValue: {
-    fontSize: 20,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-
-  statLabel: {
-    fontSize: 10,
-    color: "#94a3b8",
-  },
-
-  statDivider: {
-    width: 1,
-    backgroundColor: "#e2e8f0",
-  },
-
-  section: {
-    marginTop: 30,
-    paddingHorizontal: 20,
+  card: {
+    backgroundColor: "#fff",
+    margin: 15,
+    padding: 15,
+    borderRadius: 15,
   },
 
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#94a3b8",
+    fontWeight: "800",
     marginBottom: 10,
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
 
-  settingItem: {
+  stat: {
+    paddingVertical: 6,
+  },
+
+  statValue: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  statLabel: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+
+  action: {
     flexDirection: "row",
+    gap: 10,
+    paddingVertical: 12,
     alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
   },
 
-  iconWrapper: {
-    width: 40,
-    height: 40,
-    backgroundColor: "#f0f7ff",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 10,
-    marginRight: 10,
-  },
-
-  settingLabel: {
-    flex: 1,
+  actionText: {
     fontWeight: "600",
   },
 
-  logoutBtn: {
-    marginHorizontal: 20,
-    marginTop: 25,
-  },
-
-  logoutGradient: {
-    flexDirection: "row",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-  },
-
-  logoutText: {
-    color: "#ef4444",
-    fontWeight: "800",
-    marginLeft: 8,
-  },
-
-  versionText: {
-    textAlign: "center",
-    marginTop: 20,
-    marginBottom: 30,
-    color: "#94a3b8",
-    fontSize: 11,
+  logout: {
+    margin: 20,
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    alignItems: "center",
   },
 });
