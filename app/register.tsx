@@ -17,6 +17,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -74,16 +75,20 @@ export default function RegisterScreen() {
         return;
       }
 
-      alert("Account Created Successfully 🎉");
+      // ================= AUTO LOGIN (SESSION SAVE) =================
+      await AsyncStorage.setItem(
+        "user_session",
+        JSON.stringify({
+          uid: data.insertedId || null,
+          name,
+          email,
+          role,
+        })
+      );
 
-      // ✅ SAFE ROLE CHECK (fallback)
-      // const userRole = data.role || role;
+      alert("Account Created & Logged in 🎉");
 
-      // if (userRole === "admin") {
-      //   router.replace("/admin-dashboard");
-      // } else {
-      //   router.replace("/student-dashboard");
-      // }
+      // ================= ALWAYS REDIRECT HOME =================
       router.replace("/");
 
     } catch (error) {
@@ -93,6 +98,7 @@ export default function RegisterScreen() {
       setLoading(false);
     }
   };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -105,7 +111,6 @@ export default function RegisterScreen() {
 
           <View style={styles.card}>
 
-            {/* TITLE */}
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join ShebaLink</Text>
 
@@ -118,87 +123,43 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* ROLE SWITCH */}
-            {/* ROLE SWITCH */}
+            {/* ROLE */}
             <View style={styles.roleBox}>
-
-              {/* STUDENT */}
-              <TouchableOpacity
-                onPress={() => setRole("student")}
-                style={[
-                  styles.roleBtn,
-                  role === "student" && styles.activeRole,
-                ]}
-              >
-                <Text
-                  style={
-                    role === "student"
-                      ? styles.activeText
-                      : styles.roleText
-                  }
+              {["student", "provider", "admin"].map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => setRole(item)}
+                  style={[
+                    styles.roleBtn,
+                    role === item && styles.activeRole,
+                  ]}
                 >
-                  Student
-                </Text>
-              </TouchableOpacity>
-
-              {/* PROVIDER */}
-              <TouchableOpacity
-                onPress={() => setRole("provider")}
-                style={[
-                  styles.roleBtn,
-                  role === "provider" && styles.activeRole,
-                ]}
-              >
-                <Text
-                  style={
-                    role === "provider"
-                      ? styles.activeText
-                      : styles.roleText
-                  }
-                >
-                  Provider
-                </Text>
-              </TouchableOpacity>
-
-              {/* ADMIN */}
-              <TouchableOpacity
-                onPress={() => setRole("admin")}
-                style={[
-                  styles.roleBtn,
-                  role === "admin" && styles.activeRole,
-                ]}
-              >
-                <Text
-                  style={
-                    role === "admin"
-                      ? styles.activeText
-                      : styles.roleText
-                  }
-                >
-                  Admin
-                </Text>
-              </TouchableOpacity>
-
+                  <Text
+                    style={
+                      role === item ? styles.activeText : styles.roleText
+                    }
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* INPUTS */}
             <TextInput
               placeholder="Full Name"
-              placeholderTextColor="#94a3b8"
               style={styles.input}
               onChangeText={setName}
             />
 
             <TextInput
               placeholder="Email"
-              placeholderTextColor="#94a3b8"
               style={styles.input}
               onChangeText={setEmail}
             />
 
             <TextInput
               placeholder="Password"
-              placeholderTextColor="#94a3b8"
               secureTextEntry
               style={styles.input}
               onChangeText={setPassword}
@@ -207,7 +168,6 @@ export default function RegisterScreen() {
             {role === "student" && (
               <TextInput
                 placeholder="Student ID"
-                placeholderTextColor="#94a3b8"
                 style={styles.input}
                 onChangeText={setStudentId}
               />
@@ -226,13 +186,10 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* LOGIN LINK */}
+            {/* LOGIN */}
             <TouchableOpacity onPress={() => router.push("/login")}>
               <Text style={styles.footer}>
-                Already have an account?{" "}
-                <Text style={{ color: "#4f46e5", fontWeight: "700" }}>
-                  Login
-                </Text>
+                Already have an account? Login
               </Text>
             </TouchableOpacity>
 
@@ -243,11 +200,10 @@ export default function RegisterScreen() {
     </SafeAreaView>
   );
 }
+
+// ================= STYLES =================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0f172a",
-  },
+  container: { flex: 1, backgroundColor: "#0f172a" },
 
   scroll: {
     flexGrow: 1,
@@ -256,7 +212,7 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
     borderRadius: 25,
     padding: 22,
   },
@@ -265,7 +221,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "900",
     textAlign: "center",
-    color: "#0f172a",
   },
 
   subtitle: {
@@ -306,12 +261,10 @@ const styles = StyleSheet.create({
 
   activeRole: {
     backgroundColor: "#fff",
-    borderRadius: 12,
   },
 
   roleText: {
     color: "#64748b",
-    fontWeight: "700",
   },
 
   activeText: {
@@ -346,4 +299,4 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: "#64748b",
   },
-});     
+});

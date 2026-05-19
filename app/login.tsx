@@ -30,10 +30,21 @@ export default function LoginScreen() {
     const checkSession = async () => {
       const session = await AsyncStorage.getItem("user_session");
 
-      if (session) {
-        const user = JSON.parse(session);
+      if (!session) return;
 
-        redirectByRole(user.role);
+      const user = JSON.parse(session);
+
+      if (user.role === "admin") {
+        router.replace("/admin-dashboard");
+
+      } else if (user.role === "provider") {
+        router.replace("/provider-dashboard");
+
+      } else if (user.role === "student") {
+        router.replace("/student-dashboard");
+
+      } else {
+        router.replace("/");
       }
     };
 
@@ -41,14 +52,8 @@ export default function LoginScreen() {
   }, []);
 
   // ================= ROLE REDIRECT FUNCTION =================
-  const redirectByRole = (role) => {
-    if (role === "admin") {
-      router.replace("/admin-dashboard");
-    } else if (role === "provider") {
-      router.replace("/provider-dashboard");
-    } else {
-      router.replace("/student-dashboard");
-    }
+  const redirectByRole = () => {
+    router.replace("/");
   };
 
   // ================= LOGIN =================
