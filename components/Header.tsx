@@ -24,30 +24,25 @@ export default function Header({ title }) {
   const router = useRouter();
   const { height } = useWindowDimensions();
 
-  const slideAnim = useRef(new Animated.Value(-500)).current;
+  const slideAnim = useRef(new Animated.Value(-600)).current;
 
-  // ================= LOAD USER SESSION =================
+  // ================= LOAD USER =================
   useEffect(() => {
     const loadUser = async () => {
       const session = await AsyncStorage.getItem("user_session");
-
-      if (session) {
-        setUser(JSON.parse(session));
-      } else {
-        setUser(null);
-      }
+      setUser(session ? JSON.parse(session) : null);
     };
 
     loadUser();
   }, [menuVisible]);
 
-  // ================= MENU ANIMATION =================
+  // ================= ANIMATION =================
   useEffect(() => {
     Animated.spring(slideAnim, {
-      toValue: menuVisible ? 0 : -500,
+      toValue: menuVisible ? 0 : -600,
       useNativeDriver: true,
-      friction: 8,
-      tension: 40,
+      friction: 9,
+      tension: 45,
     }).start();
   }, [menuVisible]);
 
@@ -56,11 +51,10 @@ export default function Header({ title }) {
     router.push(path);
   };
 
-  // ================= LOGOUT =================
   const handleLogout = async () => {
     setMenuVisible(false);
 
-    Alert.alert("Logout", "Are you sure?", [
+    Alert.alert("Logout", "Do you want to logout?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
@@ -76,11 +70,9 @@ export default function Header({ title }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ================= HEADER ================= */}
+      <LinearGradient colors={["#1e3a8a", "#2563eb"]} style={styles.header}>
 
-      {/* ================= TOP HEADER ================= */}
-      <LinearGradient colors={["#1e3a8a", "#3b82f6"]} style={styles.header}>
-
-        {/* MENU ICON */}
         <Pressable
           style={styles.iconBtn}
           onPress={() => setMenuVisible(!menuVisible)}
@@ -92,10 +84,10 @@ export default function Header({ title }) {
           />
         </Pressable>
 
-        {/* TITLE */}
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
 
-        {/* PROFILE ICON */}
         <Pressable
           style={styles.iconBtn}
           onPress={() =>
@@ -111,12 +103,12 @@ export default function Header({ title }) {
 
       </LinearGradient>
 
-      {/* ================= DROPDOWN MENU ================= */}
+      {/* ================= MENU ================= */}
       {menuVisible && (
         <View style={[styles.overlay, { height }]}>
-
           <TouchableOpacity
             style={styles.backdrop}
+            activeOpacity={1}
             onPress={() => setMenuVisible(false)}
           />
 
@@ -126,29 +118,33 @@ export default function Header({ title }) {
               { transform: [{ translateY: slideAnim }] },
             ]}
           >
-            <BlurView intensity={60} tint="light" style={styles.menu}>
+            <BlurView intensity={70} tint="light" style={styles.menu}>
 
-              {/* ================= USER INFO ================= */}
+              {/* ================= USER ================= */}
               {user ? (
                 <>
                   <TouchableOpacity
                     style={styles.userBox}
                     onPress={() => handleNavigate("/profile")}
+                    activeOpacity={0.8}
                   >
                     <View style={styles.avatar}>
-                      <FontAwesome name="user" size={22} color="#1e3a8a" />
+                      <FontAwesome name="user" size={20} color="#1e3a8a" />
                     </View>
 
-                    <View>
-                      <Text style={styles.name}>{user.name}</Text>
-                      <Text style={styles.email}>{user.email}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name} numberOfLines={1}>
+                        {user.name}
+                      </Text>
+                      <Text style={styles.email} numberOfLines={1}>
+                        {user.email}
+                      </Text>
                     </View>
 
                     <FontAwesome
                       name="chevron-right"
                       size={12}
                       color="#94a3b8"
-                      style={{ marginLeft: "auto" }}
                     />
                   </TouchableOpacity>
 
@@ -160,7 +156,7 @@ export default function Header({ title }) {
                     Welcome to ShebaLink
                   </Text>
                   <Text style={styles.guestText}>
-                    Login to access all services
+                    Login to access full features
                   </Text>
                 </View>
               )}
@@ -169,7 +165,7 @@ export default function Header({ title }) {
               <MenuItem
                 icon="home"
                 label="Home"
-                color="#4b83f2"
+                color="#3b82f6"
                 onPress={() => handleNavigate("/")}
               />
 
@@ -180,25 +176,16 @@ export default function Header({ title }) {
                     user?.role === "admin"
                       ? "Admin Dashboard"
                       : user?.role === "provider"
-                        ? "Provider Dashboard"
-                        : user?.role === "student"
-                          ? "Student Dashboard"
-                          : "Dashboard"
+                      ? "Provider Dashboard"
+                      : "Student Dashboard"
                   }
                   color="#06b6d4"
                   onPress={() => {
-                    if (user?.role === "admin") {
+                    if (user?.role === "admin")
                       handleNavigate("/admin-dashboard");
-
-                    } else if (user?.role === "provider") {
+                    else if (user?.role === "provider")
                       handleNavigate("/provider-dashboard");
-
-                    } else if (user?.role === "student") {
-                      handleNavigate("/student-dashboard");
-
-                    } else {
-                      handleNavigate("/");
-                    }
+                    else handleNavigate("/student-dashboard");
                   }}
                 />
               )}
@@ -222,11 +209,11 @@ export default function Header({ title }) {
                   <TouchableOpacity
                     style={styles.logoutBtn}
                     onPress={handleLogout}
+                    activeOpacity={0.8}
                   >
-                    <View style={[styles.iconBox, { backgroundColor: "#fee2e2" }]}>
+                    <View style={styles.logoutIcon}>
                       <FontAwesome name="sign-out" size={18} color="#ef4444" />
                     </View>
-
                     <Text style={styles.logoutText}>Logout</Text>
                   </TouchableOpacity>
                 </>
@@ -244,7 +231,6 @@ export default function Header({ title }) {
 
             </BlurView>
           </Animated.View>
-
         </View>
       )}
     </SafeAreaView>
@@ -254,8 +240,8 @@ export default function Header({ title }) {
 // ================= MENU ITEM =================
 const MenuItem = ({ icon, label, color, onPress }) => {
   return (
-    <TouchableOpacity style={styles.item} onPress={onPress}>
-      <View style={[styles.iconBox, { backgroundColor: color + "20" }]}>
+    <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.iconBox, { backgroundColor: color + "15" }]}>
         <FontAwesome name={icon} size={18} color={color} />
       </View>
       <Text style={styles.itemText}>{label}</Text>
@@ -273,17 +259,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
+    elevation: 6,
   },
 
   title: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
+    maxWidth: "70%",
   },
 
   iconBtn: {
-    width: 40,
+    width: 42,
     alignItems: "center",
+    justifyContent: "center",
   },
 
   overlay: {
@@ -291,12 +280,12 @@ const styles = StyleSheet.create({
     top: 70,
     left: 0,
     right: 0,
-    zIndex: 100,
+    zIndex: 999,
   },
 
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
 
   menuWrapper: {
@@ -304,33 +293,33 @@ const styles = StyleSheet.create({
   },
 
   menu: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-    paddingVertical: 15,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    paddingVertical: 12,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
 
   userBox: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
+    padding: 16,
   },
 
   avatar: {
-    width: 45,
-    height: 45,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#e2e8f0",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
 
-  name: { fontSize: 16, fontWeight: "700" },
+  name: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
   email: { fontSize: 12, color: "#64748b" },
 
   guestBox: {
-    padding: 18,
+    padding: 16,
   },
 
   guestTitle: {
@@ -342,25 +331,26 @@ const styles = StyleSheet.create({
   guestText: {
     fontSize: 12,
     color: "#64748b",
+    marginTop: 2,
   },
 
   divider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
-    marginVertical: 10,
-    marginHorizontal: 15,
+    backgroundColor: "#e5e7eb",
+    marginVertical: 8,
+    marginHorizontal: 14,
   },
 
   item: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 18,
   },
 
   iconBox: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
@@ -368,7 +358,7 @@ const styles = StyleSheet.create({
   },
 
   itemText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#334155",
   },
@@ -376,12 +366,22 @@ const styles = StyleSheet.create({
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
+    padding: 16,
+  },
+
+  logoutIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#fee2e2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
 
   logoutText: {
     color: "#ef4444",
     fontWeight: "700",
-    marginLeft: 12,
+    fontSize: 14,
   },
 });

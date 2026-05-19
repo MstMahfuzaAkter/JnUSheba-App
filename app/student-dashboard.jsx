@@ -8,6 +8,7 @@ import {
   Alert,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -15,16 +16,24 @@ const API = "https://junsheba.vercel.app";
 
 export default function StudentDashboard() {
   const [services, setServices] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingId, setBookingId] = useState(null);
   const [bookedServices, setBookedServices] = useState([]);
+  const [tab, setTab] = useState("services"); // services | bookings
 
   useEffect(() => {
-    fetchServices();
-    loadBookedServices(); // 🔥 load already booked
+    init();
   }, []);
 
-  // ================= LOAD SERVICES =================
+  const init = async () => {
+    await fetchServices();
+    await loadBookedServices();
+    await loadMyBookings();
+    setLoading(false);
+  };
+
+  // ================= SERVICES =================
   const fetchServices = async () => {
     try {
       const res = await fetch(`${API}/services`);
@@ -32,12 +41,24 @@ export default function StudentDashboard() {
       setServices(data);
     } catch (err) {
       console.log(err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // ================= LOAD BOOKINGS (PERSISTENT) =================
+  // ================= BOOKINGS =================
+  const loadMyBookings = async () => {
+    try {
+      const session = await AsyncStorage.getItem("user_session");
+      const user = JSON.parse(session);
+
+      const res = await fetch(`${API}/bookings/user/${user.email}`);
+      const data = await res.json();
+
+      setBookings(data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   const loadBookedServices = async () => {
     try {
       const session = await AsyncStorage.getItem("user_session");
@@ -46,8 +67,8 @@ export default function StudentDashboard() {
       const res = await fetch(`${API}/bookings/user/${user.email}`);
       const data = await res.json();
 
-      const bookedIds = data.map((b) => b.serviceId);
-      setBookedServices(bookedIds);
+      const ids = data.map((b) => b.serviceId);
+      setBookedServices(ids);
     } catch (err) {
       console.log(err);
     }
@@ -74,13 +95,11 @@ export default function StudentDashboard() {
 
       const data = await res.json();
 
-      if (data.success || data.insertedId) {
+      if (data.insertedId) {
         Alert.alert("Success", "Booking Successful 🎉");
 
-        // 🔥 instantly update UI
         setBookedServices((prev) => [...prev, service._id]);
-      } else {
-        Alert.alert("Failed", data.message || "Booking Failed");
+        loadMyBookings();
       }
     } catch (err) {
       console.log(err);
@@ -89,161 +108,202 @@ export default function StudentDashboard() {
     }
   };
 
+  // ================= CANCEL BOOKING =================
+  const cancelBooking = async (id) => {
+    try {
+      const session = await AsyncStorage.getItem("user_session");
+      const user = JSON.parse(session);
+
+      const res = await fetch(`${API}/bookings/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        Alert.alert("Cancelled", "Booking removed");
+        loadMyBookings();
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   // ================= LOADING =================
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={{ marginTop: 10 }}>Loading services...</Text>
+        <ActivityIndicator size="large" color="#4f46e5" />
+        <Text>Loading dashboard...</Text>
       </View>
     );
   }
 
+  // ================= UI =================
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.header}>🎓 Student Dashboard</Text>
 
-      <FlatList
-        data={services}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        renderItem={({ item }) => {
-          const isBooked = bookedServices.includes(item._id);
-          const isLoading = bookingId === item._id;
+      {/* ================= TABS ================= */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, tab === "services" && styles.activeTab]}
+          onPress={() => setTab("services")}
+        >
+          <Text style={styles.tabText}>Services</Text>
+        </TouchableOpacity>
 
-          return (
-            <View style={styles.card}>
-              {/* Title */}
-              <Text style={styles.title}>{item.title}</Text>
+        <TouchableOpacity
+          style={[styles.tab, tab === "bookings" && styles.activeTab]}
+          onPress={() => setTab("bookings")}
+        >
+          <Text style={styles.tabText}>My Bookings</Text>
+        </TouchableOpacity>
+      </View>
 
-              {/* Category */}
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{item.category}</Text>
+      {/* ================= SERVICES ================= */}
+      {tab === "services" && (
+        <FlatList
+          data={services}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => {
+            const isBooked = bookedServices.includes(item._id);
+            const loadingBtn = bookingId === item._id;
+
+            return (
+              <View style={styles.card}>
+                <Text style={styles.title}>{item.title}</Text>
+
+                <Text style={styles.desc}>{item.description}</Text>
+
+                <View style={styles.row}>
+                  <Text style={styles.price}>৳ {item.price}</Text>
+                  <Text>{item.location}</Text>
+                </View>
+
+                <TouchableOpacity
+                  disabled={isBooked || loadingBtn}
+                  onPress={() => bookService(item)}
+                  style={[
+                    styles.button,
+                    isBooked && { backgroundColor: "#16a34a" },
+                  ]}
+                >
+                  <Text style={styles.btnText}>
+                    {loadingBtn
+                      ? "Booking..."
+                      : isBooked
+                      ? "Booked ✔"
+                      : "Book Now"}
+                  </Text>
+                </TouchableOpacity>
               </View>
+            );
+          }}
+        />
+      )}
 
-              {/* Description */}
-              <Text style={styles.desc} numberOfLines={2}>
-                {item.description}
+      {/* ================= BOOKINGS ================= */}
+      {tab === "bookings" && (
+        <ScrollView>
+          {bookings.map((b) => (
+            <View key={b._id} style={styles.card}>
+              <Text style={styles.title}>{b.serviceTitle}</Text>
+
+              <Text style={styles.status}>
+                Status: {b.status}
               </Text>
 
-              {/* Price + Location */}
-              <View style={styles.row}>
-                <Text style={styles.price}>৳ {item.price}</Text>
-                <Text style={styles.location}>{item.location}</Text>
-              </View>
-
-              {/* BUTTON */}
               <TouchableOpacity
-                onPress={() => bookService(item)}
-                disabled={isBooked || isLoading}
-                style={[
-                  styles.button,
-                  isBooked && { backgroundColor: "#16a34a" },
-                  (isBooked || isLoading) && { opacity: 0.7 },
-                ]}
+                style={styles.cancelBtn}
+                onPress={() => cancelBooking(b._id)}
               >
-                <Text style={styles.buttonText}>
-                  {isLoading
-                    ? "Booking..."
-                    : isBooked
-                    ? "Booked ✔"
-                    : "Book Now"}
-                </Text>
+                <Text style={{ color: "#fff" }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          );
-        }}
-      />
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 // ================= STYLES =================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f7fb",
-    paddingHorizontal: 15,
-  },
+  container: { flex: 1, backgroundColor: "#f3f4f6", padding: 15 },
 
   header: {
     fontSize: 24,
     fontWeight: "800",
-    marginVertical: 15,
+    marginBottom: 10,
     color: "#111827",
   },
 
-  loader: {
+  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  tabs: {
+    flexDirection: "row",
+    marginBottom: 15,
+  },
+
+  tab: {
     flex: 1,
-    justifyContent: "center",
+    padding: 12,
+    backgroundColor: "#e5e7eb",
+    marginHorizontal: 5,
+    borderRadius: 10,
     alignItems: "center",
   },
+
+  activeTab: {
+    backgroundColor: "#4f46e5",
+  },
+
+  tabText: { fontWeight: "700", color: "#111" },
 
   card: {
     backgroundColor: "#fff",
     padding: 15,
-    borderRadius: 16,
+    borderRadius: 15,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
   },
 
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
+  title: { fontSize: 18, fontWeight: "700" },
 
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#e0f2fe",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-    marginTop: 6,
-  },
-
-  badgeText: {
-    fontSize: 12,
-    color: "#0284c7",
-    fontWeight: "600",
-  },
-
-  desc: {
-    marginTop: 8,
-    color: "#6b7280",
-    fontSize: 13,
-  },
+  desc: { color: "#6b7280", marginVertical: 5 },
 
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
   },
 
-  price: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#10b981",
-  },
-
-  location: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
+  price: { fontWeight: "700", color: "#10b981" },
 
   button: {
-    marginTop: 12,
-    backgroundColor: "#3b82f6",
+    marginTop: 10,
+    backgroundColor: "#4f46e5",
     padding: 12,
     borderRadius: 10,
     alignItems: "center",
   },
 
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
+  btnText: { color: "#fff", fontWeight: "700" },
+
+  status: {
+    marginTop: 5,
+    fontWeight: "600",
+    color: "#374151",
+  },
+
+  cancelBtn: {
+    marginTop: 10,
+    backgroundColor: "#ef4444",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
   },
 });
