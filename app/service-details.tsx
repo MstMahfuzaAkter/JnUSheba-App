@@ -9,6 +9,7 @@ import {
     Linking,
     Alert,
     StatusBar,
+    Image,
 } from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -32,10 +33,8 @@ export default function ServiceDetails() {
         try {
             const res = await fetch(`${API}/services/${id}`);
             const data = await res.json();
-
             setService(data);
         } catch (err) {
-            console.log(err);
             Alert.alert("Error", "Failed to load service");
         } finally {
             setLoading(false);
@@ -46,7 +45,6 @@ export default function ServiceDetails() {
     const checkBookedStatus = async () => {
         try {
             const session = await AsyncStorage.getItem("user_session");
-
             if (!session) return;
 
             const user = JSON.parse(session);
@@ -78,7 +76,6 @@ export default function ServiceDetails() {
         }
 
         const url = `tel:${service.phone}`;
-
         const supported = await Linking.canOpenURL(url);
 
         if (supported) {
@@ -88,80 +85,15 @@ export default function ServiceDetails() {
         }
     };
 
-    // ================= CANCEL BOOKING =================
-    const cancelBooking = async () => {
-        try {
-            const session = await AsyncStorage.getItem("user_session");
-
-            if (!session) {
-                Alert.alert("Login Required");
-                return;
-            }
-
-            const user = JSON.parse(session);
-
-            Alert.alert(
-                "Cancel Booking",
-                "Are you sure you want to cancel?",
-                [
-                    {
-                        text: "No",
-                        style: "cancel",
-                    },
-
-                    {
-                        text: "Yes",
-                        style: "destructive",
-
-                        onPress: async () => {
-                            try {
-                                const res = await fetch(
-                                    `${API}/bookings/${bookingIdDoc}`,
-                                    {
-                                        method: "DELETE",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                        },
-
-                                        body: JSON.stringify({
-                                            email: user.email,
-                                        }),
-                                    }
-                                );
-
-                                const data = await res.json();
-
-                                if (data.success) {
-                                    setIsBooked(false);
-                                    setBookingIdDoc("");
-
-                                    Alert.alert("Success", "Booking cancelled");
-                                } else {
-                                    Alert.alert("Failed", data.message);
-                                }
-                            } catch (err) {
-                                console.log(err);
-                                Alert.alert("Error", "Something went wrong");
-                            }
-                        },
-                    },
-                ]
-            );
-        } catch (err) {
-            console.log(err);
-        }
-    };
-
     // ================= LOADING =================
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#3b82f6" />
             </View>
         );
     }
 
-    // ================= NO SERVICE =================
     if (!service) {
         return (
             <View style={styles.center}>
@@ -171,166 +103,79 @@ export default function ServiceDetails() {
     }
 
     return (
-        <ScrollView
-            style={styles.container}
-            showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             <StatusBar barStyle="dark-content" />
 
-            {/* HEADER CARD */}
-            <View style={styles.heroCard}>
-                <View style={styles.topRow}>
-                    <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>
-                            {service.category}
-                        </Text>
+            {/* ================= HERO IMAGE ================= */}
+            <View style={styles.heroImageContainer}>
+                {service.image ? (
+                    <Image source={{ uri: service.image }} style={styles.heroImage} />
+                ) : (
+                    <View style={styles.noImage}>
+                        <Ionicons name="image-outline" size={50} color="#94a3b8" />
                     </View>
+                )}
 
-                    <View
-                        style={[
-                            styles.statusBadge,
-                            isBooked
-                                ? styles.bookedBadge
-                                : styles.notBookedBadge,
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                styles.statusText,
-                                {
-                                    color: isBooked
-                                        ? "#166534"
-                                        : "#991b1b",
-                                },
-                            ]}
-                        >
-                            {isBooked ? "Booked" : "Available"}
-                        </Text>
-                    </View>
+                <View style={styles.overlay} />
+
+                <View style={styles.heroContent}>
+                    <Text style={styles.heroCategory}>{service.category}</Text>
+                    <Text style={styles.heroTitle}>{service.title}</Text>
                 </View>
+            </View>
 
-                <Text style={styles.title}>
-                    {service.title}
-                </Text>
-
-                <Text style={styles.price}>
-                    ৳ {service.price}
-                </Text>
+            {/* ================= MAIN CARD ================= */}
+            <View style={styles.card}>
+                <Text style={styles.price}>৳ {service.price}</Text>
 
                 <View style={styles.infoRow}>
-                    <Ionicons
-                        name="location-outline"
-                        size={18}
-                        color="#64748b"
-                    />
-
-                    <Text style={styles.infoText}>
-                        {service.location}
-                    </Text>
+                    <Ionicons name="location-outline" size={18} color="#64748b" />
+                    <Text style={styles.infoText}>{service.location}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
-                    <Ionicons
-                        name="mail-outline"
-                        size={18}
-                        color="#64748b"
-                    />
-
-                    <Text style={styles.infoText}>
-                        {service.providerEmail}
-                    </Text>
+                    <Ionicons name="mail-outline" size={18} color="#64748b" />
+                    <Text style={styles.infoText}>{service.providerEmail}</Text>
                 </View>
 
                 {service.phone && (
                     <View style={styles.infoRow}>
-                        <Ionicons
-                            name="call-outline"
-                            size={18}
-                            color="#64748b"
-                        />
-
-                        <Text style={styles.infoText}>
-                            {service.phone}
-                        </Text>
+                        <Ionicons name="call-outline" size={18} color="#64748b" />
+                        <Text style={styles.infoText}>{service.phone}</Text>
                     </View>
                 )}
             </View>
 
-            {/* DESCRIPTION */}
+            {/* ================= DESCRIPTION ================= */}
             <View style={styles.card}>
-                <Text style={styles.sectionTitle}>
-                    Description
-                </Text>
-
-                <Text style={styles.description}>
-                    {service.description}
-                </Text>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.description}>{service.description}</Text>
             </View>
 
-            {/* ACTIONS */}
+            {/* ================= ACTION BUTTONS ================= */}
             <View style={styles.actionRow}>
-                <TouchableOpacity
-                    style={styles.callBtn}
-                    activeOpacity={0.8}
-                    onPress={handleCall}
-                >
-                    <Ionicons
-                        name="call"
-                        size={20}
-                        color="#fff"
-                    />
-
-                    <Text style={styles.btnText}>
-                        Call Now
-                    </Text>
+                <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
+                    <Ionicons name="call" size={18} color="#fff" />
+                    <Text style={styles.btnText}>Call</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={styles.chatBtn}
-                    activeOpacity={0.8}
                     onPress={() => router.push(`/chat/${id}`)}
                 >
-                    <Ionicons
-                        name="chatbubble"
-                        size={20}
-                        color="#fff"
-                    />
-
-                    <Text style={styles.btnText}>
-                        Chat
-                    </Text>
+                    <Ionicons name="chatbubble" size={18} color="#fff" />
+                    <Text style={styles.btnText}>Chat</Text>
                 </TouchableOpacity>
             </View>
-
-            {/* CANCEL */}
-            {isBooked && (
-                <TouchableOpacity
-                    style={styles.cancelBtn}
-                    activeOpacity={0.8}
-                    onPress={cancelBooking}
-                >
-                    <Ionicons
-                        name="trash-outline"
-                        size={20}
-                        color="#fff"
-                    />
-
-                    <Text style={styles.btnText}>
-                        Cancel Booking
-                    </Text>
-                </TouchableOpacity>
-            )}
         </ScrollView>
     );
 }
 
 // ================= STYLES =================
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#f8fafc",
-        padding: 16,
     },
 
     center: {
@@ -340,148 +185,118 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
     },
 
-    heroCard: {
-        backgroundColor: "#fff",
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 16,
-
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+    // HERO IMAGE
+    heroImageContainer: {
+        height: 260,
+        position: "relative",
     },
 
-    topRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
+    heroImage: {
+        width: "100%",
+        height: "100%",
+    },
+
+    noImage: {
+        flex: 1,
+        justifyContent: "center",
         alignItems: "center",
-        marginBottom: 15,
+        backgroundColor: "#e2e8f0",
     },
 
-    categoryBadge: {
-        backgroundColor: "#dbeafe",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 50,
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.35)",
     },
 
-    categoryText: {
-        color: "#2563eb",
+    heroContent: {
+        position: "absolute",
+        bottom: 20,
+        left: 20,
+        right: 20,
+    },
+
+    heroCategory: {
+        color: "#93c5fd",
         fontWeight: "700",
-        textTransform: "capitalize",
+        fontSize: 12,
+        marginBottom: 5,
     },
 
-    statusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 50,
-    },
-
-    bookedBadge: {
-        backgroundColor: "#dcfce7",
-    },
-
-    notBookedBadge: {
-        backgroundColor: "#fee2e2",
-    },
-
-    statusText: {
-        fontWeight: "700",
-    },
-
-    title: {
-        fontSize: 26,
+    heroTitle: {
+        color: "#fff",
+        fontSize: 22,
         fontWeight: "800",
-        color: "#0f172a",
-        marginBottom: 10,
+    },
+
+    // CARD
+    card: {
+        backgroundColor: "#fff",
+        margin: 15,
+        padding: 15,
+        borderRadius: 16,
+        elevation: 2,
     },
 
     price: {
-        fontSize: 28,
+        fontSize: 24,
         fontWeight: "800",
         color: "#2563eb",
-        marginBottom: 16,
+        marginBottom: 10,
     },
 
     infoRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 10,
+        marginBottom: 8,
     },
 
     infoText: {
-        marginLeft: 10,
+        marginLeft: 8,
         color: "#475569",
-        fontSize: 15,
-    },
-
-    card: {
-        backgroundColor: "#fff",
-        borderRadius: 24,
-        padding: 20,
-
-        shadowColor: "#000",
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
     },
 
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "700",
-        marginBottom: 10,
-        color: "#0f172a",
+        marginBottom: 8,
     },
 
     description: {
-        color: "#475569",
-        lineHeight: 24,
-        fontSize: 15,
+        color: "#64748b",
+        lineHeight: 22,
     },
 
+    // BUTTONS
     actionRow: {
         flexDirection: "row",
-        gap: 12,
-        marginTop: 20,
+        margin: 15,
+        gap: 10,
     },
 
     callBtn: {
         flex: 1,
         backgroundColor: "#16a34a",
+        padding: 14,
+        borderRadius: 12,
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        paddingVertical: 16,
-        borderRadius: 18,
-        gap: 8,
+        gap: 6,
     },
 
     chatBtn: {
         flex: 1,
         backgroundColor: "#2563eb",
+        padding: 14,
+        borderRadius: 12,
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        paddingVertical: 16,
-        borderRadius: 18,
-        gap: 8,
-    },
-
-    cancelBtn: {
-        backgroundColor: "#ef4444",
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        paddingVertical: 16,
-        borderRadius: 18,
-        marginTop: 14,
-        gap: 8,
+        gap: 6,
     },
 
     btnText: {
         color: "#fff",
         fontWeight: "700",
-        fontSize: 15,
     },
 });

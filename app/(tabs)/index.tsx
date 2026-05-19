@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   StyleSheet,
   FlatList,
@@ -8,7 +8,9 @@ import {
   RefreshControl,
   StatusBar,
   TextInput,
+  Image,
 } from "react-native";
+
 import { Text, View } from "@/components/Themed";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,12 +24,15 @@ type Service = {
   price: number;
   category: string;
   location: string;
+  image?: string;
 };
 
 export default function ServicesScreen() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+
   const router = useRouter();
 
   const fetchServices = async () => {
@@ -36,7 +41,7 @@ export default function ServicesScreen() {
       const json = await res.json();
       setServices(json.data || json);
     } catch (err) {
-      Alert.alert("Error", "Could not connect to the server.");
+      Alert.alert("Error", "Server not responding");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,34 +52,67 @@ export default function ServicesScreen() {
     fetchServices();
   }, []);
 
+  // ================= SEARCH FILTER =================
+  const filteredServices = useMemo(() => {
+    return services.filter((item) =>
+      item.title.toLowerCase().includes(search.toLowerCase()) ||
+      item.category.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, services]);
+
+  // ================= CARD =================
   const renderItem = ({ item }: { item: Service }) => (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.95}
       style={styles.card}
-      onPress={() => router.push({ pathname: "/service-details", params: { id: item._id } })}
+      onPress={() =>
+        router.push({
+          pathname: "/service-details",
+          params: { id: item._id },
+        })
+      }
     >
-      {/* Visual Accent - Color side strip */}
-      <View style={styles.accentStrip} />
-      
-      <View style={styles.cardMain}>
-        <View style={styles.cardHeader}>
-          <View style={styles.catContainer}>
-            <Text style={styles.catText}>{item.category}</Text>
+      {/* IMAGE SECTION */}
+      <View style={styles.imageContainer}>
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={styles.image} />
+        ) : (
+          <View style={styles.noImage}>
+            <Ionicons name="image-outline" size={36} color="#94a3b8" />
           </View>
-          <Text style={styles.priceText}>৳{item.price}</Text>
+        )}
+        {/* Floating Category Badge */}
+        <View style={styles.badge}>
+          <Text style={styles.category}>{item.category}</Text>
+        </View>
+      </View>
+
+      {/* CONTENT SECTION */}
+      <View style={styles.cardBody}>
+        <View style={styles.row}>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <View style={styles.priceBadge}>
+            <Text style={styles.price}>৳{item.price}</Text>
+          </View>
         </View>
 
-        <Text style={styles.serviceTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.descriptionText} numberOfLines={2}>{item.description}</Text>
+        <Text style={styles.desc} numberOfLines={2}>
+          {item.description}
+        </Text>
 
-        <View style={styles.cardFooter}>
-          <View style={styles.locBox}>
-            <Ionicons name="map" size={12} color="#94a3b8" />
-            <Text style={styles.footerText}>{item.location}</Text>
+        <View style={styles.footer}>
+          <View style={styles.locationContainer}>
+            <Ionicons name="location" size={15} color="#3b82f6" />
+            <Text style={styles.location} numberOfLines={1}>
+              {item.location}
+            </Text>
           </View>
-          <View style={styles.viewAction}>
-            <Text style={styles.actionText}>View</Text>
-            <Ionicons name="arrow-forward" size={14} color="#2563eb" />
+
+          <View style={styles.actionBtn}>
+            <Text style={styles.viewBtn}>Details</Text>
+            <Ionicons name="arrow-forward-circle" size={20} color="#3b82f6" />
           </View>
         </View>
       </View>
@@ -83,44 +121,66 @@ export default function ServicesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Top Professional Header */}
-      <View style={styles.topSection}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.brandName}>JUNSHEBA</Text>
-            <Text style={styles.welcomeText}>Find an Expert</Text>
-          </View>
-          <TouchableOpacity style={styles.notifBtn}>
+      <StatusBar barStyle="light-content" backgroundColor="#1e40af" />
+
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <Text style={styles.brand}>JUNSHEBA</Text>
+          <TouchableOpacity style={styles.iconCircle}>
             <Ionicons name="notifications-outline" size={20} color="#fff" />
-            <View style={styles.notifDot} />
           </TouchableOpacity>
         </View>
+        <Text style={styles.heading}>Find Expert Services</Text>
 
-        {/* Search Bar UI */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#94a3b8" style={{marginLeft: 15}} />
-          <TextInput 
-            placeholder="Search services..." 
-            placeholderTextColor="#94a3b8"
-            style={styles.searchInput}
-          />
+        {/* SEARCH BOX */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={20} color="#64748b" />
+            <TextInput
+              placeholder="What service are you looking for?"
+              placeholderTextColor="#94a3b8"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
-      <View style={styles.contentBody}>
+      {/* BODY */}
+      <View style={styles.body}>
         {loading ? (
-          <ActivityIndicator size="large" color="#2563eb" style={{marginTop: 40}} />
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+          </View>
+        ) : filteredServices.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="search-outline" size={50} color="#cbd5e1" />
+            <Text style={styles.emptyText}>No services found</Text>
+            <Text style={styles.emptySubText}>Try searching for something else</Text>
+          </View>
         ) : (
           <FlatList
-            data={services}
+            data={filteredServices}
             keyExtractor={(item) => item._id}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
+            contentContainerStyle={{ paddingBottom: 20, paddingTop: 5 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchServices();}} />
+              <RefreshControl
+                refreshing={refreshing}
+                tintColor="#3b82f6"
+                onRefresh={() => {
+                  setRefreshing(true);
+                  fetchServices();
+                }}
+              />
             }
           />
         )}
@@ -129,167 +189,246 @@ export default function ServicesScreen() {
   );
 }
 
+// ================= MODERN STYLES =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#f8fafc", // Soft clean background
   },
-  topSection: {
-    backgroundColor: "#0f172a", // Dark navy pro background
-    paddingTop: 60,
-    paddingHorizontal: 25,
+
+  header: {
+    backgroundColor: "#1e40af", // Deep Premium Blue
+    paddingTop: 55,
+    paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    shadowColor: "#1e40af",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 8,
   },
-  headerRow: {
+
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "transparent",
-    marginBottom: 25,
   },
-  brandName: {
-    color: "#3b82f6",
-    fontSize: 12,
+
+  brand: {
+    color: "#93c5fd",
+    fontSize: 13,
     fontWeight: "900",
-    letterSpacing: 2,
+    letterSpacing: 2.5,
   },
-  welcomeText: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  notifBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
-  notifDot: {
-    position: "absolute",
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#ef4444",
-    borderWidth: 1,
-    borderColor: "#0f172a",
+
+  heading: {
+    color: "#fff",
+    fontSize: 26,
+    fontWeight: "800",
+    marginTop: 8,
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
-  searchContainer: {
+
+  searchWrapper: {
+    backgroundColor: "transparent",
+  },
+
+  searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 15,
-    height: 50,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 52,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  searchInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: "#0f172a",
-  },
-  contentBody: {
-    flex: 1,
-    marginTop: -20, // Overlap effect
-    backgroundColor: "transparent",
-  },
-  listContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 30,
-  },
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    marginBottom: 15,
-    overflow: "hidden",
-    shadowColor: "#64748b",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 15,
+    shadowRadius: 8,
     elevation: 2,
   },
-  accentStrip: {
-    width: 6,
-    backgroundColor: "#2563eb",
-  },
-  cardMain: {
+
+  searchInput: {
     flex: 1,
+    marginLeft: 10,
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+
+  body: {
+    flex: 1,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    marginBottom: 18,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+    // Premium iOS Shadow
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    // Android Shadow
+    elevation: 3,
+  },
+
+  imageContainer: {
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  image: {
+    width: "100%",
+    height: 170,
+  },
+
+  noImage: {
+    height: 170,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f1f5f9",
+  },
+
+  badge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+
+  category: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  cardBody: {
     padding: 16,
     backgroundColor: "#fff",
   },
-  cardHeader: {
+
+  row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
     backgroundColor: "transparent",
   },
-  catContainer: {
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  catText: {
-    fontSize: 10,
+
+  title: {
+    fontSize: 18,
     fontWeight: "700",
-    color: "#64748b",
-    textTransform: "uppercase",
+    color: "#0f172a",
+    flex: 1,
+    marginRight: 10,
   },
-  priceText: {
+
+  priceBadge: {
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+
+  price: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#2563eb", // Vibrant Blue Price
   },
-  serviceTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1e293b",
-    marginBottom: 4,
-  },
-  descriptionText: {
+
+  desc: {
     fontSize: 13,
     color: "#64748b",
+    marginTop: 6,
     lineHeight: 18,
-    marginBottom: 15,
   },
-  cardFooter: {
+
+  footer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "transparent",
-    paddingTop: 10,
+    marginTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#f8fafc",
+    paddingTop: 12,
+    backgroundColor: "transparent",
   },
-  locBox: {
+
+  locationContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "transparent",
+    flex: 1,
+    marginRight: 10,
   },
-  footerText: {
-    fontSize: 12,
-    color: "#94a3b8",
-    marginLeft: 4,
-  },
-  viewAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "transparent",
-  },
-  actionText: {
+
+  location: {
     fontSize: 13,
+    color: "#64748b",
+    marginLeft: 5,
+    fontWeight: "500",
+  },
+
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+
+  viewBtn: {
+    color: "#3b82f6",
     fontWeight: "700",
-    color: "#2563eb",
+    fontSize: 14,
     marginRight: 4,
+  },
+
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 60,
+    backgroundColor: "transparent",
+  },
+
+  emptyText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#475569",
+  },
+
+  emptySubText: {
+    fontSize: 13,
+    color: "#94a3b8",
+    marginTop: 4,
   },
 });

@@ -8,13 +8,20 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 
 const API = "https://junsheba.vercel.app";
+const IMGBB_KEY = "2c7e810f139593dc180added26dd51a7";
 
 export default function AddService() {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [image, setImage] = useState(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -29,9 +36,60 @@ export default function AddService() {
     setForm({ ...form, [key]: value });
   };
 
+  // ================= IMAGE PICK =================
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      uploadToImgBB(result.assets[0].base64);
+    }
+  };
+
+  // ================= IMG BB UPLOAD =================
+  const uploadToImgBB = async (base64Img) => {
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("image", base64Img);
+
+      const res = await fetch(
+        `https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        setImage(data.data.url);
+        Alert.alert("Success", "Image uploaded ✅");
+      } else {
+        Alert.alert("Error", "Upload failed");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Image upload error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ================= ADD SERVICE =================
   const addService = async () => {
     if (!form.title || !form.price) {
       Alert.alert("Error", "Title & Price required");
+      return;
+    }
+
+    if (!image) {
+      Alert.alert("Error", "Please upload image first");
       return;
     }
 
@@ -46,6 +104,7 @@ export default function AddService() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          image, // ✅ IMPORTANT
           price: Number(form.price),
           providerEmail: user.email,
           providerName: user.name,
@@ -65,6 +124,8 @@ export default function AddService() {
           location: "",
           phone: "",
         });
+
+        setImage(null);
       } else {
         Alert.alert("Error", data.message);
       }
@@ -78,6 +139,17 @@ export default function AddService() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>➕ Create Service</Text>
+
+      {/* IMAGE UPLOAD */}
+      <TouchableOpacity style={styles.imgBtn} onPress={pickImage}>
+        <Text style={styles.btnText}>
+          {uploading ? "Uploading..." : "Pick Image"}
+        </Text>
+      </TouchableOpacity>
+
+      {image && (
+        <Image source={{ uri: image }} style={styles.preview} />
+      )}
 
       <Input label="Title" value={form.title} onChange={(v) => handleChange("title", v)} />
       <Input label="Price" value={form.price} onChange={(v) => handleChange("price", v)} keyboard />
@@ -104,6 +176,7 @@ export default function AddService() {
   );
 }
 
+// ================= INPUT COMPONENT =================
 const Input = ({ label, value, onChange, keyboard, multiline }) => (
   <View style={{ marginBottom: 12 }}>
     <Text style={styles.label}>{label}</Text>
@@ -117,10 +190,13 @@ const Input = ({ label, value, onChange, keyboard, multiline }) => (
   </View>
 );
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#f8fafc" },
   title: { fontSize: 22, fontWeight: "800", marginBottom: 15 },
+
   label: { fontSize: 12, fontWeight: "700", color: "#64748b" },
+
   input: {
     backgroundColor: "#fff",
     padding: 12,
@@ -128,6 +204,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
+
   btn: {
     backgroundColor: "#3b82f6",
     padding: 15,
@@ -135,5 +212,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
+
+  imgBtn: {
+    backgroundColor: "#10b981",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
   btnText: { color: "#fff", fontWeight: "800" },
+
+  preview: {
+    width: "100%",
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
 });
