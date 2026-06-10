@@ -7,9 +7,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Text,
 } from "react-native";
 
-import { Text } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,7 +24,6 @@ export default function ProfileScreen() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ================= LOAD USER =================
   useEffect(() => {
     const init = async () => {
       try {
@@ -36,16 +35,18 @@ export default function ProfileScreen() {
         }
 
         const parsed = JSON.parse(session);
+
+        console.log("USER SESSION:", parsed);
+
         setUser(parsed);
 
-        // ADMIN STATS ONLY FOR ADMIN
-        if (parsed.role === "admin") {
+        if (parsed?.role === "admin") {
           const res = await fetch(`${API}/admin-stats`);
           const data = await res.json();
           setStats(data);
         }
       } catch (err) {
-        console.log(err);
+        console.log("Profile Error:", err);
       } finally {
         setLoading(false);
       }
@@ -56,7 +57,10 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
       {
         text: "Logout",
         style: "destructive",
@@ -76,49 +80,57 @@ export default function ProfileScreen() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <View style={styles.loading}>
+        <Text>No user found</Text>
+      </View>
+    );
+  }
+
+  const role = user?.role || "user";
+  const name = user?.name || "Unknown User";
 
   return (
     <ScrollView style={styles.container}>
-
       <Stack.Screen options={{ title: "Dashboard" }} />
 
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <LinearGradient
         colors={["#0f172a", "#1e3a8a", "#3b82f6"]}
         style={styles.header}
       >
         <Image
           source={{
-            uri: user.profileImage
-              ? user.profileImage
-              : `https://ui-avatars.com/api/?name=${user.name}`,
+            uri:
+              user?.profileImage ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
           }}
           style={styles.avatar}
         />
 
-        <Text style={styles.name}>{user.name}</Text>
+        <Text style={styles.name}>{name}</Text>
 
         <Text style={styles.role}>
-          {user.role.toUpperCase()} DASHBOARD
+          {role.toUpperCase()} DASHBOARD
         </Text>
       </LinearGradient>
 
-      {/* ================= ADMIN PANEL ================= */}
-      {user.role === "admin" && stats && (
+      {/* ADMIN */}
+      {role === "admin" && stats && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Admin Analytics</Text>
 
-          <Stat label="Users" value={stats.totalUsers} />
-          <Stat label="Students" value={stats.totalStudents} />
-          <Stat label="Providers" value={stats.totalProviders} />
-          <Stat label="Services" value={stats.totalServices} />
-          <Stat label="Bookings" value={stats.totalBookings} />
+          <Stat label="Users" value={stats?.totalUsers || 0} />
+          <Stat label="Students" value={stats?.totalStudents || 0} />
+          <Stat label="Providers" value={stats?.totalProviders || 0} />
+          <Stat label="Services" value={stats?.totalServices || 0} />
+          <Stat label="Bookings" value={stats?.totalBookings || 0} />
         </View>
       )}
 
-      {/* ================= PROVIDER ================= */}
-      {user.role === "provider" && (
+      {/* PROVIDER */}
+      {role === "provider" && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Provider Panel</Text>
 
@@ -142,8 +154,8 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* ================= STUDENT ================= */}
-      {user.role === "student" && (
+      {/* STUDENT */}
+      {role === "student" && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Student Panel</Text>
 
@@ -167,7 +179,7 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* ================= SETTINGS ================= */}
+      {/* SETTINGS */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Settings</Text>
 
@@ -184,17 +196,13 @@ export default function ProfileScreen() {
         />
       </View>
 
-      {/* ================= LOGOUT ================= */}
+      {/* LOGOUT */}
       <TouchableOpacity style={styles.logout} onPress={handleLogout}>
-        <Text style={{ color: "red", fontWeight: "800" }}>
-          Logout
-        </Text>
+        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
-
-/* ================= COMPONENTS ================= */
 
 const Stat = ({ label, value }) => (
   <View style={styles.stat}>
@@ -210,86 +218,145 @@ const Action = ({ icon, title, onPress }) => (
   </TouchableOpacity>
 );
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f1f5f9" },
+  container: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
 
   loading: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#f8fafc",
   },
 
   header: {
-    padding: 30,
+    paddingTop: 55,
+    paddingBottom: 35,
     alignItems: "center",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+
+    elevation: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
   },
 
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 3,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 4,
     borderColor: "#fff",
+    backgroundColor: "#fff",
   },
 
   name: {
     color: "#fff",
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 10,
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 12,
   },
 
   role: {
-    color: "#cbd5e1",
-    fontSize: 12,
+    color: "#dbeafe",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 5,
+    letterSpacing: 1,
   },
 
   card: {
     backgroundColor: "#fff",
-    margin: 15,
-    padding: 15,
-    borderRadius: 15,
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 22,
+
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
 
   sectionTitle: {
-    fontWeight: "800",
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 15,
   },
 
   stat: {
-    paddingVertical: 6,
+    backgroundColor: "#eff6ff",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 10,
   },
 
   statValue: {
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2563eb",
   },
 
   statLabel: {
-    fontSize: 12,
-    color: "#64748b",
+    marginTop: 4,
+    fontSize: 13,
+    color: "#475569",
+    fontWeight: "600",
   },
 
   action: {
     flexDirection: "row",
-    gap: 10,
-    paddingVertical: 12,
     alignItems: "center",
+    backgroundColor: "#f8fafc",
+    padding: 15,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
 
   actionText: {
+    marginLeft: 12,
+    fontSize: 15,
     fontWeight: "600",
+    color: "#0f172a",
   },
 
   logout: {
-    margin: 20,
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 35,
+    backgroundColor: "#ef4444",
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: "center",
+
+    elevation: 5,
+    shadowColor: "#ef4444",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+
+  logoutText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
   },
 });

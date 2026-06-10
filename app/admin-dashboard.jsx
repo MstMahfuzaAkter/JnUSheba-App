@@ -2,61 +2,93 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  StatusBar,
+  ActivityIndicator,
+  SafeAreaView,
+  RefreshControl,
 } from "react-native";
 
 const API = "https://junsheba.vercel.app";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [providers, setProviders] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadAll();
   }, []);
 
-  // ================= LOAD =================
-  const loadData = async () => {
+  // ================= LOAD ALL =================
+  const loadAll = async () => {
     try {
       setLoading(true);
 
-      const [sRes, bRes] = await Promise.all([
+      const [sRes, uRes, pRes, bRes] = await Promise.all([
         fetch(`${API}/admin-stats`),
+        fetch(`${API}/users`),
+        fetch(`${API}/admin/providers/pending`),
         fetch(`${API}/admin/bookings`),
       ]);
 
       const sData = await sRes.json();
+      const uData = await uRes.json();
+      const pData = await pRes.json();
       const bData = await bRes.json();
 
       setStats(sData);
+      setUsers(uData);
+      setProviders(pData);
       setBookings(bData);
     } catch (err) {
-      console.log(err);
+      console.log("LOAD ERROR:", err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // ================= UPDATE =================
-  const updateStatus = async (id, status) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadAll();
+  };
+
+  // ================= ROLE CHANGE =================
+  const changeRole = async (id, role) => {
     try {
-      await fetch(`${API}/bookings/${id}`, {
+      await fetch(`${API}/admin/user-role/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ role }),
       });
 
-      loadData();
+      loadAll();
     } catch (err) {
       console.log(err);
     }
   };
 
+  // ================= PROVIDER ACTION =================
+  const handleProviderAction = async (id, action) => {
+    try {
+      await fetch(`${API}/admin/provider/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      loadAll();
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  // ================= LOADING =================
   if (loading) {
     return (
       <View style={styles.loader}>
@@ -65,196 +97,141 @@ export default function AdminDashboard() {
     );
   }
 
-  // ================= STATUS BADGE =================
-  const StatusBadge = ({ status }) => {
-    let bg = "#f59e0b";
+  // ================= USER CARD =================
+  const renderUser = ({ item }) => (
+    <View style={styles.card}>
+      <Text style={styles.title}>👤 {item.name}</Text>
+      <Text style={styles.text}>📧 {item.email}</Text>
+      <Text style={styles.status}>Role: {item.role}</Text>
 
-    if (status === "accepted") bg = "#22c55e";
-    if (status === "rejected") bg = "#ef4444";
+      <View style={styles.btnRow}>
+        <TouchableOpacity onPress={() => changeRole(item._id, "student")} style={[styles.btn, { backgroundColor: "#3b82f6" }]}>
+          <Text style={styles.btnText}>Student</Text>
+        </TouchableOpacity>
 
-    return (
-      <View style={[styles.badge, { backgroundColor: bg }]}>
-        <Text style={styles.badgeText}>{status.toUpperCase()}</Text>
+        <TouchableOpacity onPress={() => changeRole(item._id, "provider")} style={[styles.btn, { backgroundColor: "#f59e0b" }]}>
+          <Text style={styles.btnText}>Provider</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => changeRole(item._id, "admin")} style={[styles.btn, { backgroundColor: "#ef4444" }]}>
+          <Text style={styles.btnText}>Admin</Text>
+        </TouchableOpacity>
       </View>
-    );
-  };
-
-  // ================= STATS CARD =================
-  const StatCard = ({ label, value, color }) => (
-    <View style={[styles.statCard, { borderColor: color }]}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 
-  // ================= BOOKING ITEM =================
-  const renderItem = ({ item }) => (
-    <View style={styles.bookingCard}>
-      <View style={styles.rowBetween}>
-        <Text style={styles.title}>📦 {item.serviceTitle}</Text>
-        <StatusBadge status={item.status} />
+  // ================= PROVIDER CARD =================
+  const renderProvider = ({ item }) => (
+    <View style={styles.card}>
+      <Text style={styles.title}>👤 {item.name}</Text>
+      <Text style={styles.text}>📧 {item.email}</Text>
+
+      <View style={styles.btnRow}>
+        <TouchableOpacity onPress={() => handleProviderAction(item._id, "approve")} style={[styles.btn, { backgroundColor: "#22c55e" }]}>
+          <Text style={styles.btnText}>Approve</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => handleProviderAction(item._id, "reject")} style={[styles.btn, { backgroundColor: "#ef4444" }]}>
+          <Text style={styles.btnText}>Reject</Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
 
+  // ================= BOOKING CARD =================
+  const renderBooking = ({ item }) => (
+    <View style={styles.card}>
+      <Text style={styles.title}>📦 {item.serviceTitle}</Text>
       <Text style={styles.text}>👤 {item.userEmail}</Text>
-      <Text style={styles.text}>🧑‍🔧 {item.providerEmail}</Text>
-
-      {item.status === "pending" && (
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: "#22c55e" }]}
-            onPress={() => updateStatus(item._id, "accepted")}
-          >
-            <Text style={styles.btnText}>Accept</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: "#ef4444" }]}
-            onPress={() => updateStatus(item._id, "rejected")}
-          >
-            <Text style={styles.btnText}>Reject</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <Text style={styles.status}>Status: {item.status}</Text>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* HEADER */}
-      <Text style={styles.header}>🛡️ Admin Panel</Text>
-      <Text style={styles.subHeader}>Dashboard Overview</Text>
-
-      {/* STATS */}
-      <View style={styles.statsGrid}>
-        <StatCard label="Users" value={stats.totalUsers} color="#6366f1" />
-        <StatCard label="Students" value={stats.totalStudents} color="#10b981" />
-        <StatCard label="Providers" value={stats.totalProviders} color="#f59e0b" />
-        <StatCard label="Services" value={stats.totalServices} color="#3b82f6" />
-        <StatCard label="Bookings" value={stats.totalBookings} color="#ef4444" />
-      </View>
-
-      {/* BOOKINGS */}
-      <Text style={styles.sectionTitle}>Recent Bookings</Text>
-
+    <SafeAreaView style={styles.container}>
       <FlatList
-        data={bookings}
-        keyExtractor={(item) => item._id}
-        renderItem={renderItem}
+        data={[]}
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.header}>🛡️ Admin Dashboard</Text>
+
+            {/* STATS */}
+            <View style={styles.statsGrid}>
+              <Stat label="Users" value={stats?.totalUsers || 0} color="#6366f1" />
+              <Stat label="Students" value={stats?.totalStudents || 0} color="#10b981" />
+              <Stat label="Providers" value={stats?.totalProviders || 0} color="#f59e0b" />
+              <Stat label="Services" value={stats?.totalServices || 0} color="#3b82f6" />
+              <Stat label="Bookings" value={stats?.totalBookings || 0} color="#ef4444" />
+            </View>
+
+            {/* USERS */}
+            <Text style={styles.sectionTitle}>Users</Text>
+            <FlatList data={users} keyExtractor={(i) => i._id} renderItem={renderUser} scrollEnabled={false} />
+
+            {/* PROVIDERS */}
+            <Text style={styles.sectionTitle}>Pending Providers</Text>
+            <FlatList data={providers} keyExtractor={(i) => i._id} renderItem={renderProvider} scrollEnabled={false} />
+
+            {/* BOOKINGS */}
+            <Text style={styles.sectionTitle}>Bookings</Text>
+            <FlatList data={bookings} keyExtractor={(i) => i._id} renderItem={renderBooking} scrollEnabled={false} />
+          </View>
+        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
+// ================= STATS =================
+const Stat = ({ label, value, color }) => (
+  <View style={[styles.statCard, { borderLeftColor: color }]}>
+    <Text style={[styles.statValue, { color }]}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
 // ================= STYLES =================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-    padding: 16,
-  },
-
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  header: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#0f172a",
-  },
-
-  subHeader: {
-    fontSize: 14,
-    color: "#64748b",
-    marginBottom: 15,
-  },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc", padding: 15 },
+  header: { fontSize: 26, fontWeight: "800", marginBottom: 10 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
 
   statCard: {
     width: "48%",
     backgroundColor: "#fff",
     padding: 15,
-    borderRadius: 14,
+    borderRadius: 12,
     marginBottom: 10,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
   },
 
-  statValue: {
-    fontSize: 22,
-    fontWeight: "900",
-  },
+  statValue: { fontSize: 20, fontWeight: "900" },
+  statLabel: { color: "#64748b" },
 
-  statLabel: {
-    color: "#64748b",
-    marginTop: 3,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 15 },
 
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginVertical: 10,
-    color: "#0f172a",
-  },
-
-  bookingCard: {
+  card: {
     backgroundColor: "#fff",
     padding: 15,
-    borderRadius: 14,
-    marginBottom: 10,
-  },
-
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-
-  text: {
-    color: "#475569",
-    marginTop: 3,
-  },
-
-  btnRow: {
-    flexDirection: "row",
+    borderRadius: 12,
     marginTop: 10,
   },
 
+  title: { fontWeight: "700", fontSize: 15 },
+  text: { color: "#475569" },
+  status: { fontWeight: "700", marginTop: 5 },
+
+  btnRow: { flexDirection: "row", marginTop: 10, flexWrap: "wrap" },
+
   btn: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    padding: 8,
     borderRadius: 8,
-    marginRight: 10,
+    marginRight: 8,
+    marginTop: 5,
   },
 
-  btnText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
+  btnText: { color: "#fff", fontWeight: "700" },
 
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-
-  badgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
-  },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

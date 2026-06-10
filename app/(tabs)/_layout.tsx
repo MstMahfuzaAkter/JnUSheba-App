@@ -1,42 +1,71 @@
-import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { Tabs } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View, ActivityIndicator } from "react-native";
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const session = await AsyncStorage.getItem("user_session");
+
+        if (!session) {
+          return;
+        }
+
+        const user = JSON.parse(session);
+
+        // যদি role না থাকে → force logout
+        if (!user?.role) {
+          await AsyncStorage.removeItem("user_session");
+        }
+
+      } catch (err) {
+        console.log("Auth check error:", err);
+        await AsyncStorage.removeItem("user_session");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // ================= LOADING UI =================
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
+  // ================= TABS =================
   return (
     <Tabs
       tabBar={(props) => <Footer {...props} />}
       screenOptions={{
         header: () => <Header title="JnU_ShebaLink" />,
-        headerTitleAlign: 'center',
-        // Disable the static render of the header on web
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          headerTitle: 'JnU_ShebaLink',
-          title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          title: "Home",
         }}
       />
+
       <Tabs.Screen
         name="services"
         options={{

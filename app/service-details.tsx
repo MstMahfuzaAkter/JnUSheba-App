@@ -22,8 +22,11 @@ export default function ServiceDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
-  const [service, setService] = useState<any>(null);
+  const [service, setService] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
   const [isBooked, setIsBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -31,6 +34,12 @@ export default function ServiceDetails() {
     fetchService();
     checkBookedStatus();
   }, [id]);
+
+  useEffect(() => {
+    if (service?.providerEmail) {
+      loadReviews(service.providerEmail);
+    }
+  }, [service]);
 
   // ================= FETCH SERVICE =================
   const fetchService = async () => {
@@ -45,34 +54,52 @@ export default function ServiceDetails() {
     }
   };
 
-  // ================= CHECK BOOKED STATUS =================
+  // ================= REVIEWS =================
+  const loadReviews = async (providerEmail) => {
+    try {
+      setLoadingReviews(true);
+
+      const res = await fetch(`${API}/reviews/${providerEmail}`);
+      const data = await res.json();
+
+      setReviews(data);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  // ================= BOOKED CHECK =================
   const checkBookedStatus = async () => {
     try {
       const session = await AsyncStorage.getItem("user_session");
       if (!session) return;
+
       const user = JSON.parse(session);
 
       const res = await fetch(`${API}/bookings/user/${user.email}`);
       const data = await res.json();
 
-      const found = data.find((b: any) => b.serviceId === id);
-      if (found) {
-        setIsBooked(true);
-      }
+      const found = data.find((b) => b.serviceId === id);
+
+      if (found) setIsBooked(true);
     } catch (err) {
       console.log(err);
     }
   };
 
-  // ================= BOOK SERVICE DIRECTLY =================
+  // ================= BOOK SERVICE =================
   const handleDirectBook = async () => {
     try {
       setBookingLoading(true);
+
       const session = await AsyncStorage.getItem("user_session");
       if (!session) {
-        Alert.alert("Error", "Please login first to book.");
+        Alert.alert("Error", "Please login first");
         return;
       }
+
       const user = JSON.parse(session);
 
       const res = await fetch(`${API}/bookings`, {
@@ -88,11 +115,9 @@ export default function ServiceDetails() {
 
       const data = await res.json();
 
-      if (data.success || data.insertedId) {
+      if (data.insertedId || data.success) {
         Alert.alert("Success 🎉", "Booking Successful!");
         setIsBooked(true);
-      } else {
-        Alert.alert("Failed", data.message || "Booking Failed");
       }
     } catch (err) {
       console.log(err);
@@ -103,20 +128,15 @@ export default function ServiceDetails() {
 
   // ================= CALL =================
   const handleCall = async () => {
-    if (!service?.phone) {
-      Alert.alert("Unavailable", "Phone number not found");
-      return;
-    }
+    if (!service?.phone) return Alert.alert("No phone number");
+
     const url = `tel:${service.phone}`;
     const supported = await Linking.canOpenURL(url);
 
-    if (supported) {
-      Linking.openURL(url);
-    } else {
-      Alert.alert("Error", "Calling not supported");
-    }
+    if (supported) Linking.openURL(url);
   };
 
+  // ================= LOADING =================
   if (loading) {
     return (
       <View style={styles.center}>
@@ -134,226 +154,191 @@ export default function ServiceDetails() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* HERO IMAGE */}
-      <View style={styles.heroImageContainer}>
+      {/* HERO */}
+      <View style={styles.hero}>
         {service.image ? (
-          <Image source={{ uri: service.image }} style={styles.heroImage} />
+          <Image source={{ uri: service.image }} style={styles.image} />
         ) : (
           <View style={styles.noImage}>
             <Ionicons name="image-outline" size={50} color="#94a3b8" />
           </View>
         )}
+
         <View style={styles.overlay} />
-        <View style={styles.heroContent}>
-          <Text style={styles.heroCategory}>{service.category}</Text>
-          <Text style={styles.heroTitle}>{service.title}</Text>
+        <View style={styles.heroText}>
+          <Text style={styles.category}>{service.category}</Text>
+          <Text style={styles.title}>{service.title}</Text>
         </View>
       </View>
 
-      {/* INFO CARD */}
+      {/* INFO */}
       <View style={styles.card}>
         <Text style={styles.price}>৳ {service.price}</Text>
-
-        <View style={styles.infoRow}>
-          <Ionicons name="location-outline" size={18} color="#64748b" />
-          <Text style={styles.infoText}>{service.location}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Ionicons name="mail-outline" size={18} color="#64748b" />
-          <Text style={styles.infoText}>{service.providerEmail}</Text>
-        </View>
-
-        {service.phone && (
-          <View style={styles.infoRow}>
-            <Ionicons name="call-outline" size={18} color="#64748b" />
-            <Text style={styles.infoText}>{service.phone}</Text>
-          </View>
-        )}
+        <Text>{service.location}</Text>
+        <Text>{service.providerEmail}</Text>
       </View>
 
       {/* DESCRIPTION */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Description</Text>
-        <Text style={styles.description}>{service.description}</Text>
+        <Text>{service.description}</Text>
       </View>
 
-      {/* DYNAMIC BOOKING SYSTEM COMPONENT */}
+      {/* BOOK */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Service Booking</Text>
         <TouchableOpacity
-          activeOpacity={0.8}
           onPress={handleDirectBook}
           disabled={isBooked || bookingLoading}
           style={[
-            styles.bookNowBtn,
-            isBooked && styles.bookedBtnStatus,
-            (isBooked || bookingLoading) && { opacity: 0.9 }
+            styles.bookBtn,
+            isBooked && { backgroundColor: "#10b981" },
           ]}
         >
           {bookingLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <>
-              <Ionicons name={isBooked ? "checkmark-done-circle" : "bookmark"} size={18} color="#fff" />
-              <Text style={styles.btnText}>
-                {isBooked ? "Already Booked ✔" : "Book Now"}
-              </Text>
-            </>
+            <Text style={{ color: "#fff", fontWeight: "700" }}>
+              {isBooked ? "Booked ✔" : "Book Now"}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* COMMUNICATION ACTIONS */}
-      <View style={styles.actionRow}>
+      {/* ACTIONS */}
+      <View style={styles.row}>
         <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
-          <Ionicons name="call" size={18} color="#fff" />
-          <Text style={styles.btnText}>Call Provider</Text>
+          <Text style={{ color: "#fff" }}>Call</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.chatBtn}
           onPress={() => router.push(`/chat/${id}`)}
         >
-          <Ionicons name="chatbubble" size={18} color="#fff" />
-          <Text style={styles.btnText}>Chat</Text>
+          <Text style={{ color: "#fff" }}>Chat</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* ================= REVIEWS ================= */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>⭐ Reviews</Text>
+
+        {loadingReviews ? (
+          <ActivityIndicator size="small" color="#3b82f6" />
+        ) : reviews.length === 0 ? (
+          <Text style={{ color: "#64748b" }}>No reviews yet</Text>
+        ) : (
+          reviews.map((r) => (
+            <View key={r._id} style={styles.reviewCard}>
+              <View style={styles.reviewTop}>
+                <Text style={styles.rating}>⭐ {r.rating}/5</Text>
+                <Text style={styles.email}>{r.userEmail}</Text>
+              </View>
+
+              <Text style={styles.comment}>{r.comment}</Text>
+
+              <Text style={styles.date}>
+                {new Date(r.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+          ))
+        )}
       </View>
     </ScrollView>
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  heroImageContainer: {
-    height: 260,
-    position: "relative",
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  hero: { height: 250, position: "relative" },
+
+  image: { width: "100%", height: "100%" },
+
   noImage: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#e2e8f0",
   },
+
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
-  heroContent: {
+
+  heroText: {
     position: "absolute",
     bottom: 20,
-    left: 20,
-    right: 20,
+    left: 15,
   },
-  heroCategory: {
-    color: "#93c5fd",
-    fontWeight: "700",
-    fontSize: 12,
-    marginBottom: 5,
-  },
-  heroTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-  },
+
+  category: { color: "#93c5fd", fontWeight: "700" },
+
+  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
+
   card: {
     backgroundColor: "#fff",
-    marginHorizontal: 15,
-    marginTop: 15,
+    margin: 12,
     padding: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#f1f5f9",
-    shadowColor: "#000",
-    shadowOpacity: 0.02,
-    shadowRadius: 5,
-    elevation: 2,
+    borderRadius: 12,
   },
-  price: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#2563eb",
-    marginBottom: 10,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  infoText: {
-    marginLeft: 8,
-    color: "#475569",
-    fontSize: 14,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: 8,
-  },
-  description: {
-    color: "#64748b",
-    lineHeight: 22,
-    fontSize: 14,
-  },
-  bookNowBtn: {
+
+  price: { fontSize: 22, fontWeight: "800", color: "#2563eb" },
+
+  sectionTitle: { fontWeight: "800", marginBottom: 10 },
+
+  bookBtn: {
     backgroundColor: "#2563eb",
     padding: 14,
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
+    borderRadius: 10,
     alignItems: "center",
-    gap: 8,
-    marginTop: 5,
   },
-  bookedBtnStatus: {
-    backgroundColor: "#10b981",
-  },
-  actionRow: {
+
+  row: {
     flexDirection: "row",
-    margin: 15,
     gap: 10,
-    marginBottom: 45,
+    margin: 12,
   },
+
   callBtn: {
     flex: 1,
     backgroundColor: "#475569",
-    padding: 14,
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
-    gap: 6,
   },
+
   chatBtn: {
     flex: 1,
     backgroundColor: "#0284c7",
-    padding: 14,
-    borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "center",
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
-    gap: 6,
   },
-  btnText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
+
+  reviewCard: {
+    backgroundColor: "#f1f5f9",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
   },
+
+  reviewTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  rating: { color: "#f59e0b", fontWeight: "800" },
+
+  email: { fontSize: 12, color: "#64748b" },
+
+  comment: { marginTop: 5, fontWeight: "500" },
+
+  date: { marginTop: 5, fontSize: 11, color: "#94a3b8" },
 });

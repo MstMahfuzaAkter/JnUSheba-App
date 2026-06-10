@@ -1,23 +1,17 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Image,
-  SafeAreaView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, ActivityIndicator, Image,
+  SafeAreaView, StatusBar, KeyboardAvoidingView,
+  Platform, ScrollView,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const API = "https://junsheba.vercel.app";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -31,7 +25,6 @@ export default function RegisterScreen() {
   const [studentId, setStudentId] = useState("");
   const [profileImage, setProfileImage] = useState(null);
 
-  // ================= IMAGE PICK =================
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
@@ -44,7 +37,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // ================= REGISTER =================
   const handleRegister = async () => {
     if (!name || !email || !password) {
       alert("Fill all fields");
@@ -54,45 +46,40 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch("https://junsheba.vercel.app/users", {
+      const res = await fetch(`${API}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          email,
+          email: email.trim().toLowerCase(),
           password,
           role,
           studentId: role === "student" ? studentId : null,
           profileImage,
-          createdAt: new Date(),
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        alert(data.message || "Server Error");
+      if (!res.ok) {
+        alert(data.message || "Error");
         return;
       }
 
-      // ================= AUTO LOGIN (SESSION SAVE) =================
-      await AsyncStorage.setItem(
-        "user_session",
-        JSON.stringify({
-          uid: data.insertedId || null,
-          name,
-          email,
-          role,
-        })
-      );
+      const session = {
+        uid: data.result?.insertedId || null,
+        name,
+        email: email.toLowerCase(),
+        role,
+      };
 
-      alert("Account Created & Logged in 🎉");
+      await AsyncStorage.setItem("user_session", JSON.stringify(session));
 
-      // ================= ALWAYS REDIRECT HOME =================
+      alert("Account Created 🎉");
       router.replace("/");
 
-    } catch (error) {
-      console.log(error);
+    } catch (err) {
+      console.log(err);
       alert("Network Error");
     } finally {
       setLoading(false);
@@ -108,13 +95,10 @@ export default function RegisterScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll}>
-
           <View style={styles.card}>
 
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join ShebaLink</Text>
 
-            {/* IMAGE PICK */}
             <TouchableOpacity onPress={pickImage} style={styles.imageBox}>
               {profileImage ? (
                 <Image source={{ uri: profileImage }} style={styles.img} />
@@ -123,180 +107,72 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* ROLE */}
             <View style={styles.roleBox}>
               {["student", "provider", "admin"].map((item) => (
                 <TouchableOpacity
                   key={item}
                   onPress={() => setRole(item)}
-                  style={[
-                    styles.roleBtn,
-                    role === item && styles.activeRole,
-                  ]}
+                  style={[styles.roleBtn, role === item && styles.activeRole]}
                 >
-                  <Text
-                    style={
-                      role === item ? styles.activeText : styles.roleText
-                    }
-                  >
-                    {item}
-                  </Text>
+                  <Text>{item}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* INPUTS */}
-            <TextInput
-              placeholder="Full Name"
-              style={styles.input}
-              onChangeText={setName}
-            />
-
-            <TextInput
-              placeholder="Email"
-              style={styles.input}
-              onChangeText={setEmail}
-            />
-
-            <TextInput
-              placeholder="Password"
-              secureTextEntry
-              style={styles.input}
-              onChangeText={setPassword}
-            />
+            <TextInput placeholder="Name" style={styles.input} onChangeText={setName} />
+            <TextInput placeholder="Email" style={styles.input} onChangeText={setEmail} />
+            <TextInput placeholder="Password" style={styles.input} secureTextEntry onChangeText={setPassword} />
 
             {role === "student" && (
-              <TextInput
-                placeholder="Student ID"
-                style={styles.input}
-                onChangeText={setStudentId}
-              />
+              <TextInput placeholder="Student ID" style={styles.input} onChangeText={setStudentId} />
             )}
 
-            {/* BUTTON */}
-            <TouchableOpacity
-              onPress={handleRegister}
-              style={styles.button}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* LOGIN */}
-            <TouchableOpacity onPress={() => router.push("/login")}>
-              <Text style={styles.footer}>
-                Already have an account? Login
-              </Text>
+            <TouchableOpacity style={styles.btn} onPress={handleRegister}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={{color:"#fff"}}>Register</Text>}
             </TouchableOpacity>
 
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
+  scroll: { flexGrow: 1, justifyContent: "center", padding: 20 },
+  card: { backgroundColor: "#fff", padding: 20, borderRadius: 20 },
 
-  scroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 25,
-    padding: 22,
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-
-  subtitle: {
-    textAlign: "center",
-    color: "#64748b",
-    marginBottom: 20,
-  },
+  title: { fontSize: 22, fontWeight: "bold", textAlign: "center" },
 
   imageBox: {
-    width: 85,
-    height: 85,
-    borderRadius: 50,
-    backgroundColor: "#eef2ff",
-    alignSelf: "center",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: "#eee", alignSelf: "center",
+    justifyContent: "center", alignItems: "center",
+    margin: 10
   },
 
-  img: {
-    width: 85,
-    height: 85,
-    borderRadius: 50,
-  },
+  img: { width: 80, height: 80, borderRadius: 40 },
 
-  roleBox: {
-    flexDirection: "row",
-    backgroundColor: "#f1f5f9",
-    borderRadius: 12,
-    marginBottom: 15,
-  },
+  roleBox: { flexDirection: "row", marginVertical: 10 },
 
   roleBtn: {
-    flex: 1,
-    padding: 10,
-    alignItems: "center",
+    flex: 1, padding: 10, alignItems: "center"
   },
 
-  activeRole: {
-    backgroundColor: "#fff",
-  },
-
-  roleText: {
-    color: "#64748b",
-  },
-
-  activeText: {
-    color: "#4f46e5",
-    fontWeight: "800",
-  },
+  activeRole: { backgroundColor: "#ddd" },
 
   input: {
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderWidth: 1, borderColor: "#ccc",
+    padding: 10, marginVertical: 5,
+    borderRadius: 10
   },
 
-  button: {
+  btn: {
     backgroundColor: "#4f46e5",
     padding: 15,
-    borderRadius: 12,
     marginTop: 10,
     alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#fff",
-    fontWeight: "800",
-  },
-
-  footer: {
-    textAlign: "center",
-    marginTop: 15,
-    color: "#64748b",
-  },
+    borderRadius: 10
+  }
 });
