@@ -8,6 +8,7 @@ import {
   Animated,
   useWindowDimensions,
   Alert,
+  Platform,
 } from "react-native";
 
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -51,19 +52,36 @@ export default function Header({ title }) {
     router.push(path);
   };
 
-  const handleLogout = async () => {
+  // ================= LOGOUT (web + native safe) =================
+  const performLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("user_session");
+      setUser(null);
+      router.replace("/login");
+    } catch (err) {
+      console.log("Logout Error:", err);
+    }
+  };
+
+  const handleLogout = () => {
     setMenuVisible(false);
+
+    if (Platform.OS === "web") {
+      // Alert.alert buttons are unreliable on react-native-web,
+      // so use the browser's native confirm dialog instead.
+      const confirmed = window.confirm("Do you want to logout?");
+      if (confirmed) {
+        performLogout();
+      }
+      return;
+    }
 
     Alert.alert("Logout", "Do you want to logout?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
         style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.removeItem("user_session");
-          setUser(null);
-          router.replace("/login");
-        },
+        onPress: performLogout,
       },
     ]);
   };

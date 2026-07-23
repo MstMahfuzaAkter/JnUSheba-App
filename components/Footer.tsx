@@ -14,10 +14,8 @@ export default function Footer() {
 
     { name: "Services", icon: "th-list", route: "/services" },
 
-    // ❌ "about" নেই, তাই info-circle use করলাম
     { name: "About", icon: "info-circle", route: "/about" },
 
-    // ❌ "setting" নেই, তাই cog use করলাম
     { name: "Settings", icon: "cog", route: "/settings" },
 
     { name: "Profile", icon: "user", route: "/profile" },
@@ -25,7 +23,7 @@ export default function Footer() {
 
   return (
     <SafeAreaView edges={["bottom"]} style={styles.safe}>
-      <LinearGradient colors={["#0f172a", "#1e293b"]} style={styles.container}>
+      <LinearGradient colors={["#dee3f0", "#eef1f5"]} style={styles.container}>
         {tabs.map((tab, index) => {
           const isActive = pathname === tab.route;
 
@@ -38,7 +36,7 @@ export default function Footer() {
               <FontAwesome
                 name={tab.icon}
                 size={20}
-                color={isActive ? "#38bdf8" : "#94a3b8"}
+                color={isActive ? "#38bdf8" : "#4c4f53"}
               />
 
               <Text style={[styles.label, isActive && { color: "#38bdf8" }]}>
@@ -67,7 +65,7 @@ const styles = StyleSheet.create({
 
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: "#796d6d",
         shadowOpacity: 0.2,
         shadowRadius: 10,
       },

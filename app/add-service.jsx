@@ -28,8 +28,16 @@ export default function AddService() {
     price: "",
     description: "",
     category: "",
+    subCategory: "",
     location: "",
+    district: "",
+    area: "",
+    address: "",
     phone: "",
+    priceType: "fixed", // fixed | hourly | starting
+    serviceDuration: "1 Hour",
+    warranty: "No Warranty",
+    experience: "",
   });
 
   const handleChange = (key, value) => {
@@ -104,10 +112,14 @@ export default function AddService() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          image, // ✅ IMPORTANT
+          image,
           price: Number(form.price),
+          experience: Number(form.experience) || 0,
+          providerId: user._id || user.id || "",
           providerEmail: user.email,
           providerName: user.name,
+          profileImage: user.profileImage || user.image || "",
+          phone: form.phone || user.phone || "",
         }),
       });
 
@@ -121,13 +133,21 @@ export default function AddService() {
           price: "",
           description: "",
           category: "",
+          subCategory: "",
           location: "",
+          district: "",
+          area: "",
+          address: "",
           phone: "",
+          priceType: "fixed",
+          serviceDuration: "1 Hour",
+          warranty: "No Warranty",
+          experience: "",
         });
 
         setImage(null);
       } else {
-        Alert.alert("Error", data.message);
+        Alert.alert("Error", data.message || "Failed to add service");
       }
     } catch (err) {
       Alert.alert("Error", "Server error");
@@ -153,10 +173,20 @@ export default function AddService() {
 
       <Input label="Title" value={form.title} onChange={(v) => handleChange("title", v)} />
       <Input label="Price" value={form.price} onChange={(v) => handleChange("price", v)} keyboard />
+      <Input label="Price Type (fixed / hourly / starting)" value={form.priceType} onChange={(v) => handleChange("priceType", v)} />
 
       <Input label="Category" value={form.category} onChange={(v) => handleChange("category", v)} />
+      <Input label="Sub Category" value={form.subCategory} onChange={(v) => handleChange("subCategory", v)} />
+
       <Input label="Location" value={form.location} onChange={(v) => handleChange("location", v)} />
-      <Input label="Phone" value={form.phone} onChange={(v) => handleChange("phone", v)} />
+      <Input label="District" value={form.district} onChange={(v) => handleChange("district", v)} />
+      <Input label="Area" value={form.area} onChange={(v) => handleChange("area", v)} />
+      <Input label="Address" value={form.address} onChange={(v) => handleChange("address", v)} />
+
+      <Input label="Phone" value={form.phone} onChange={(v) => handleChange("phone", v)} keyboard />
+      <Input label="Experience (Years)" value={form.experience} onChange={(v) => handleChange("experience", v)} keyboard />
+      <Input label="Service Duration (e.g., 1 Hour)" value={form.serviceDuration} onChange={(v) => handleChange("serviceDuration", v)} />
+      <Input label="Warranty" value={form.warranty} onChange={(v) => handleChange("warranty", v)} />
 
       <Input
         label="Description"
@@ -195,7 +225,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#f8fafc" },
   title: { fontSize: 22, fontWeight: "800", marginBottom: 15 },
 
-  label: { fontSize: 12, fontWeight: "700", color: "#64748b" },
+  label: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 4 },
 
   input: {
     backgroundColor: "#fff",
@@ -211,6 +241,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginTop: 10,
+    marginBottom: 30,
   },
 
   imgBtn: {

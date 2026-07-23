@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   RefreshControl,
+  Linking,
 } from "react-native";
 
 const API = "https://junsheba.vercel.app";
@@ -138,14 +139,47 @@ export default function AdminDashboard() {
     </View>
   );
 
-  // ================= BOOKING CARD =================
-  const renderBooking = ({ item }) => (
-    <View style={styles.card}>
-      <Text style={styles.title}>📦 {item.serviceTitle}</Text>
-      <Text style={styles.text}>👤 {item.userEmail}</Text>
-      <Text style={styles.status}>Status: {item.status}</Text>
-    </View>
-  );
+  // ================= BOOKING CARD (WITH SSLCOMMERZ PAYMENT) =================
+  const renderBooking = ({ item }) => {
+    const handlePayment = async () => {
+      try {
+        const response = await fetch(`${API}/payment/init`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: item._id,
+            amount: item.price || 500, // Fallback amount if item.price is missing
+            customerName: item.userName || "ShebaTech User",
+            customerEmail: item.userEmail,
+            customerPhone: item.phone || "01700000000",
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success && data.url) {
+          Linking.openURL(data.url);
+        } else {
+          alert(data.message || "Payment initialization failed.");
+        }
+      } catch (err) {
+        console.log("Payment Error:", err);
+        alert("Something went wrong with the payment request.");
+      }
+    };
+
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>📦 {item.serviceTitle}</Text>
+        <Text style={styles.text}>👤 {item.userEmail}</Text>
+        <Text style={styles.status}>Status: {item.status}</Text>
+        <Text style={[styles.status, { color: item.paymentStatus === "paid" ? "#22c55e" : "#ef4444" }]}>
+          Payment: {item.paymentStatus || "unpaid"}
+        </Text>
+
+        
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -165,7 +199,7 @@ export default function AdminDashboard() {
             </View>
 
             {/* USERS */}
-            <Text style={styles.sectionTitle}>Users</Text>
+            <Text style={styles.sectionTitle}>Users Management</Text>
             <FlatList data={users} keyExtractor={(i) => i._id} renderItem={renderUser} scrollEnabled={false} />
 
             {/* PROVIDERS */}
@@ -173,7 +207,7 @@ export default function AdminDashboard() {
             <FlatList data={providers} keyExtractor={(i) => i._id} renderItem={renderProvider} scrollEnabled={false} />
 
             {/* BOOKINGS */}
-            <Text style={styles.sectionTitle}>Bookings</Text>
+            <Text style={styles.sectionTitle}>Bookings & Payments</Text>
             <FlatList data={bookings} keyExtractor={(i) => i._id} renderItem={renderBooking} scrollEnabled={false} />
           </View>
         }
@@ -194,7 +228,7 @@ const Stat = ({ label, value, color }) => (
 // ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc", padding: 15 },
-  header: { fontSize: 26, fontWeight: "800", marginBottom: 10 },
+  header: { fontSize: 26, fontWeight: "800", marginBottom: 10, color: "#1e293b" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
 
   statCard: {
@@ -204,34 +238,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
     borderLeftWidth: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   statValue: { fontSize: 20, fontWeight: "900" },
-  statLabel: { color: "#64748b" },
+  statLabel: { color: "#64748b", fontWeight: "600" },
 
-  sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 20, marginBottom: 5, color: "#334155" },
 
   card: {
     backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
-  title: { fontWeight: "700", fontSize: 15 },
-  text: { color: "#475569" },
-  status: { fontWeight: "700", marginTop: 5 },
+  title: { fontWeight: "700", fontSize: 15, color: "#0f172a" },
+  text: { color: "#475569", marginTop: 2 },
+  status: { fontWeight: "700", marginTop: 4, color: "#334155" },
 
   btnRow: { flexDirection: "row", marginTop: 10, flexWrap: "wrap" },
 
   btn: {
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
     marginRight: 8,
     marginTop: 5,
+    alignItems: "center",
   },
 
-  btnText: { color: "#fff", fontWeight: "700" },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8fafc" },
 });

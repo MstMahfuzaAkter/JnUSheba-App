@@ -139,7 +139,7 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
+  container: { flex: 1, backgroundColor: "#dbdee6" },
   scroll: { flexGrow: 1, justifyContent: "center", padding: 20 },
   card: { backgroundColor: "#fff", padding: 20, borderRadius: 20 },
 
