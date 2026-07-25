@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo-google-fonts/Times New Roman": "^0.4.1",
+    "@expo-google-fonts/poppins": "^0.4.1",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -29,9 +29,9 @@
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
     "firebase": "^12.12.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-native": "^0.81.5",
+    "react": "19.1.4",
+    "react-dom": "19.1.4",
+    "react-native": "0.81.6",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
