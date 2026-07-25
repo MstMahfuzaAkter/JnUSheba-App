@@ -1,15 +1,15 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-  Platform,
-  TouchableOpacity,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 // react-native-webview has no web implementation, so we only import/use it on native platforms.
 let WebView = null;
@@ -17,7 +17,7 @@ if (Platform.OS !== "web") {
   WebView = require("react-native-webview").WebView;
 }
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
 export default function PaymentScreen() {
   const { bookingId, amount, serviceTitle } = useLocalSearchParams();

@@ -18,13 +18,11 @@ export default function SettingsScreen() {
   const [notification, setNotification] = useState(true);
   const [location, setLocation] = useState(true);
 
-  // ডায়নামিক ইউজারের তথ্য রাখার স্টেট
   const [userData, setUserData] = useState({
     name: "Loading...",
     email: "Loading...",
   });
 
-  // পেজ লোড হওয়ার সময় ইউজারের ডাটা, থিম এবং নোটিফিকেশন প্রিফারেন্স লোড করা
   useEffect(() => {
     fetchUserData();
     loadThemePreference();
@@ -54,8 +52,6 @@ export default function SettingsScreen() {
       });
     }
   };
-
-  // থিম প্রিফারেন্স লোড করা
   const loadThemePreference = async () => {
     try {
       const savedTheme = await AsyncStorage.getItem("theme_mode");
@@ -67,7 +63,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // নোটিফিকেশন প্রিফারেন্স লোড করা
   const loadNotificationPreference = async () => {
     try {
       const savedStatus = await AsyncStorage.getItem("notification_enabled");
@@ -79,7 +74,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // ডার্ক মোড টগল করার ফাংশন এবং AsyncStorage-এ সেভ করা
   const toggleDarkMode = async (value) => {
     setDarkMode(value);
     try {
@@ -89,7 +83,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // নোটিফিকেশন টগল করার ফাংশন
   const toggleNotification = async (value) => {
     setNotification(value);
     try {
@@ -122,7 +115,6 @@ export default function SettingsScreen() {
     ]);
   };
 
-  // ডার্ক মোড বা লাইট মোডের ওপর ভিত্তি করে ডাইনামিক স্টাইল কনফিগারেশন
   const currentTheme = darkMode ? darkStyles : lightStyles;
 
   return (
@@ -206,8 +198,6 @@ export default function SettingsScreen() {
     </ScrollView>
   );
 }
-
-// কমন স্টাইলগুলো
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -307,7 +297,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// লাইট মোড থিম কালার
 const lightStyles = StyleSheet.create({
   container: {
     backgroundColor: "#f8fafc",

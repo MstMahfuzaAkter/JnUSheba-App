@@ -7,6 +7,36 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
+// ================= FONTS =================
+const FONTS = {
+  regular: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
+  bold: "Poppins_700Bold",
+  extrabold: "Poppins_800ExtraBold",
+};
+
+// ================= COLOR SYSTEM =================
+const COLORS = {
+  header: "#5B21B6",
+  headerMid: "#7C3AED",
+  headerDark: "#3B0764",
+  background: "#F6F6FB",
+  cards: "#FFFFFF",
+  button: "#FF6B35",
+  buttonDark: "#E8551F",
+  success: "#16A34A",
+  successBg: "#DCFCE7",
+  danger: "#EF4444",
+  gold: "#FACC15",
+  pink: "#EC4899",
+  text: "#181524",
+  subtitle: "#6B7280",
+  subtitleLight: "#9CA3AF",
+  border: "#EFEFF6",
+  chipBg: "#F1EEFB",
+};
+
 export default function AboutScreen() {
   return (
     <ScrollView 
@@ -22,7 +52,7 @@ export default function AboutScreen() {
       
       {/* Brand Identity Header */}
       <LinearGradient
-        colors={['#1e3a8a', '#3b82f6']}
+        colors={[COLORS.headerDark, COLORS.header, COLORS.headerMid]}
         style={styles.brandHeader}
       >
         <RNView style={styles.logoCircle}>
@@ -50,10 +80,10 @@ export default function AboutScreen() {
         {/* Section: Who We Serve */}
         <Text style={styles.sectionTitle}>Target Audience</Text>
         <View style={styles.featureGrid}>
-          <ServicePill icon="graduation-cap" label="Students" color="#3b82f6" />
-          <ServicePill icon="briefcase" label="Faculty" color="#10b981" />
-          <ServicePill icon="building" label="Staff" color="#f59e0b" />
-          <ServicePill icon="home" label="Residents" color="#ef4444" />
+          <ServicePill icon="graduation-cap" label="Students" color={COLORS.headerMid} />
+          <ServicePill icon="briefcase" label="Faculty" color={COLORS.success} />
+          <ServicePill icon="building" label="Staff" color="#D97706" />
+          <ServicePill icon="home" label="Residents" color={COLORS.danger} />
         </View>
 
         {/* Section: Core Features */}
@@ -94,7 +124,7 @@ const ServicePill = ({ icon, label, color }: any) => (
 
 const FeatureItem = ({ icon, title, desc }: any) => (
   <RNView style={styles.featureItem}>
-    <FontAwesome name={icon} size={20} color="#1e3a8a" style={styles.featureIcon} />
+    <FontAwesome name={icon} size={20} color={COLORS.header} style={styles.featureIcon} />
     <RNView style={styles.featureContent}>
       <Text style={styles.featureTitle}>{title}</Text>
       <Text style={styles.featureDesc}>{desc}</Text>
@@ -105,7 +135,7 @@ const FeatureItem = ({ icon, title, desc }: any) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', 
+    backgroundColor: COLORS.background, 
   },
   contentContainer: {
     paddingBottom: 40,
@@ -131,15 +161,15 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontSize: 28,
-    fontWeight: '900',
+    fontFamily: FONTS.extrabold,
     color: '#fff',
     letterSpacing: 1,
   },
   brandTagline: {
     fontSize: 14,
-    color: '#dbeafe',
+    color: '#E9D5FF',
     marginTop: 5,
-    fontWeight: '500',
+    fontFamily: FONTS.medium,
   },
   versionBadge: {
     marginTop: 15,
@@ -151,13 +181,13 @@ const styles = StyleSheet.create({
   versionText: {
     color: '#fff',
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: FONTS.extrabold,
     letterSpacing: 1,
   },
   mainCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.cards,
     marginHorizontal: 20,
-    marginTop: -40, // Pulls the card up into the header
+    marginTop: -40,
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
@@ -165,26 +195,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   paragraph: {
     fontSize: 15,
-    color: '#64748b',
+    color: COLORS.subtitle,
     lineHeight: 24,
     marginBottom: 15,
+    fontFamily: FONTS.regular,
   },
   highlightText: {
-    color: '#1e3a8a',
-    fontWeight: '700',
+    color: COLORS.header,
+    fontFamily: FONTS.bold,
   },
   divider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: COLORS.border,
     marginVertical: 10,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontFamily: FONTS.extrabold,
+    color: COLORS.text,
     marginTop: 20,
     marginBottom: 15,
   },
@@ -197,13 +230,13 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.chipBg,
     paddingRight: 12,
     paddingLeft: 6,
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: COLORS.border,
   },
   pillIcon: {
     width: 28,
@@ -215,8 +248,8 @@ const styles = StyleSheet.create({
   },
   pillLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    fontFamily: FONTS.semibold,
+    color: COLORS.text,
   },
   featureItem: {
     flexDirection: 'row',
@@ -231,19 +264,20 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
   },
   featureDesc: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: COLORS.subtitle,
     marginTop: 2,
+    fontFamily: FONTS.regular,
   },
   footerNote: {
     textAlign: 'center',
     marginTop: 30,
     fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '500',
+    color: COLORS.subtitleLight,
+    fontFamily: FONTS.medium,
   }
 });

@@ -1,21 +1,21 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { io } from "socket.io-client";
 
-const API = "https://junsheba.vercel.app"; // ⚠️ see setup notes: Socket.io needs a persistent server, this must point to that server
+const API = "https://jnushebaserver.onrender.com"; // ⚠️ see setup notes: Socket.io needs a persistent server, this must point to that server
 
 let socket; // module-level so it isn't recreated on every render
 

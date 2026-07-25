@@ -12,7 +12,7 @@ import {
     View,
 } from "react-native";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
 export default function MyServices() {
     const [services, setServices] = useState([]);

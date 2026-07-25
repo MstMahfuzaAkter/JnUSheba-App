@@ -14,8 +14,7 @@ import {
 
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-import { Ionicons, MaterialIcons, AntDesign } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,7 +24,11 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ================= AUTO LOGIN =================
+  // ⚠️ প্রয়োজনীয় স্টেট দুটি এখানে যুক্ত করা হলো
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+    // ================= AUTO LOGIN =================
   useEffect(() => {
     const checkSession = async () => {
       const session = await AsyncStorage.getItem("user_session");
@@ -56,10 +59,45 @@ export default function LoginScreen() {
     router.replace("/");
   };
 
+
+  // ================= REAL-TIME EMAIL CHANGE =================
+  const handleEmailChange = (text) => {
+    setEmail(text);
+    if (!text.trim()) {
+      setEmailError("Email is required");
+    } else if (!/\S+@\S+\.\S+/.test(text)) {
+      setEmailError("Please enter a valid email address");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  // ================= REAL-TIME PASSWORD CHANGE =================
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    if (!text) {
+      setPasswordError("Password is required");
+    } else if (text.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+    } else {
+      setPasswordError("");
+    }
+  };
+
   // ================= LOGIN =================
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Email and password required");
+    let isValid = true;
+
+    if (!email) {
+      setEmailError("Email is required");
+      isValid = false;
+    }
+    if (!password) {
+      setPasswordError("Password is required");
+      isValid = false;
+    }
+
+    if (!isValid || emailError || passwordError) {
       return;
     }
 
@@ -67,7 +105,7 @@ export default function LoginScreen() {
 
     try {
       const res = await fetch(
-        `https://junsheba.vercel.app/users/${email}`
+        `https://jnushebaserver.onrender.com/users/${email.trim()}`
       );
 
       const data = await res.json();
@@ -78,9 +116,9 @@ export default function LoginScreen() {
         return;
       }
 
-      // ❗ PASSWORD CHECK (basic)
+      // ❗ PASSWORD CHECK
       if (data.password && data.password !== password) {
-        Alert.alert("Error", "Wrong password");
+        setPasswordError("Wrong password");
         setLoading(false);
         return;
       }
@@ -131,27 +169,29 @@ export default function LoginScreen() {
 
           {/* EMAIL */}
           <Text style={styles.label}>EMAIL</Text>
-          <View style={styles.inputBox}>
+          <View style={[styles.inputBox, emailError ? styles.errorBorder : null]}>
             <MaterialIcons name="email" size={20} color="#888" />
             <TextInput
               placeholder="Enter email"
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
           </View>
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           {/* PASSWORD */}
           <Text style={styles.label}>PASSWORD</Text>
-          <View style={styles.inputBox}>
+          <View style={[styles.inputBox, passwordError ? styles.errorBorder : null]}>
             <MaterialIcons name="lock" size={20} color="#888" />
             <TextInput
               placeholder="Enter password"
               style={styles.input}
               secureTextEntry={!showPassword}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
             />
 
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -162,6 +202,7 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
           {/* LOGIN BUTTON */}
           <TouchableOpacity
@@ -251,12 +292,26 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginTop: 8,
     height: 55,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+
+  errorBorder: {
+    borderColor: "#f43f5e",
   },
 
   input: {
     flex: 1,
     paddingHorizontal: 10,
     fontSize: 15,
+  },
+
+  errorText: {
+    color: "#f43f5e",
+    fontSize: 11,
+    fontWeight: "bold",
+    marginTop: 4,
+    marginLeft: 4,
   },
 
   actionBtn: {

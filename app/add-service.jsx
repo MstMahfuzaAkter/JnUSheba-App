@@ -1,26 +1,28 @@
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker";
-
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 const IMGBB_KEY = "2c7e810f139593dc180added26dd51a7";
 
 export default function AddService() {
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-
   const [image, setImage] = useState(null);
 
   const [form, setForm] = useState({
@@ -34,17 +36,47 @@ export default function AddService() {
     area: "",
     address: "",
     phone: "",
-    priceType: "fixed", // fixed | hourly | starting
+    priceType: "fixed",
     serviceDuration: "1 Hour",
     warranty: "No Warranty",
     experience: "",
   });
 
+  useEffect(() => {
+    const verifyProvider = async () => {
+      try {
+        const session = await AsyncStorage.getItem("user_session");
+        if (!session) {
+          router.replace("/login");
+          return;
+        }
+
+        const parsedUser = JSON.parse(session);
+        const identifier = parsedUser?.email || parsedUser?._id || parsedUser?.id;
+
+        const res = await fetch(`${API}/users/${identifier}`);
+        const user = await res.json();
+
+        if (!user || user.role !== "provider" || !user.isApproved) {
+          Alert.alert("Access Denied", "You must be an approved provider to add services.");
+          router.replace("/profile");
+          return;
+        }
+      } catch (err) {
+        console.log("Auth verification error:", err);
+        router.replace("/profile");
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    verifyProvider();
+  }, []);
+
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
   };
 
-  // ================= IMAGE PICK =================
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -58,11 +90,9 @@ export default function AddService() {
     }
   };
 
-  // ================= IMG BB UPLOAD =================
   const uploadToImgBB = async (base64Img) => {
     try {
       setUploading(true);
-
       const formData = new FormData();
       formData.append("image", base64Img);
 
@@ -89,7 +119,6 @@ export default function AddService() {
     }
   };
 
-  // ================= ADD SERVICE =================
   const addService = async () => {
     if (!form.title || !form.price) {
       Alert.alert("Error", "Title & Price required");
@@ -127,7 +156,6 @@ export default function AddService() {
 
       if (data.success) {
         Alert.alert("Success", "Service Added 🎉");
-
         setForm({
           title: "",
           price: "",
@@ -144,7 +172,6 @@ export default function AddService() {
           warranty: "No Warranty",
           experience: "",
         });
-
         setImage(null);
       } else {
         Alert.alert("Error", data.message || "Failed to add service");
@@ -156,11 +183,18 @@ export default function AddService() {
     }
   };
 
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8fafc" }}>
+        <ActivityIndicator size="large" color="#5B21B6" />
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>➕ Create Service</Text>
 
-      {/* IMAGE UPLOAD */}
       <TouchableOpacity style={styles.imgBtn} onPress={pickImage}>
         <Text style={styles.btnText}>
           {uploading ? "Uploading..." : "Pick Image"}
@@ -178,7 +212,6 @@ export default function AddService() {
       <Input label="Category" value={form.category} onChange={(v) => handleChange("category", v)} />
       <Input label="Sub Category" value={form.subCategory} onChange={(v) => handleChange("subCategory", v)} />
 
-      <Input label="Location" value={form.location} onChange={(v) => handleChange("location", v)} />
       <Input label="District" value={form.district} onChange={(v) => handleChange("district", v)} />
       <Input label="Area" value={form.area} onChange={(v) => handleChange("area", v)} />
       <Input label="Address" value={form.address} onChange={(v) => handleChange("address", v)} />
@@ -206,7 +239,6 @@ export default function AddService() {
   );
 }
 
-// ================= INPUT COMPONENT =================
 const Input = ({ label, value, onChange, keyboard, multiline }) => (
   <View style={{ marginBottom: 12 }}>
     <Text style={styles.label}>{label}</Text>
@@ -220,13 +252,10 @@ const Input = ({ label, value, onChange, keyboard, multiline }) => (
   </View>
 );
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#f8fafc" },
   title: { fontSize: 22, fontWeight: "800", marginBottom: 15 },
-
   label: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 4 },
-
   input: {
     backgroundColor: "#fff",
     padding: 12,
@@ -234,7 +263,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
-
   btn: {
     backgroundColor: "#3b82f6",
     padding: 15,
@@ -243,7 +271,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 30,
   },
-
   imgBtn: {
     backgroundColor: "#10b981",
     padding: 12,
@@ -251,9 +278,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-
   btnText: { color: "#fff", fontWeight: "800" },
-
   preview: {
     width: "100%",
     height: 180,

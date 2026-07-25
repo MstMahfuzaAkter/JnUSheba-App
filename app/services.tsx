@@ -1,30 +1,50 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  StatusBar,
-  TextInput,
-  Image,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    RefreshControl,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
 } from "react-native";
 
 import { Text, View } from "@/components/Themed";
-import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
+// ================= FONTS =================
+const FONTS = {
+  regular: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
+  bold: "Poppins_700Bold",
+  extrabold: "Poppins_800ExtraBold",
+};
+
+// ================= COLOR SYSTEM =================
 const COLORS = {
-  header: "#2563EB",
-  background: "#F8FAFC",
+  header: "#5B21B6",
+  headerMid: "#7C3AED",
+  headerDark: "#3B0764",
+  background: "#F6F6FB",
   cards: "#FFFFFF",
-  button: "#F97316",
-  text: "#0F172A",
-  subtitle: "#64748B",
-  border: "#E2E8F0",
+  button: "#FF6B35",
+  buttonDark: "#E8551F",
+  success: "#16A34A",
+  successBg: "#DCFCE7",
+  danger: "#EF4444",
+  gold: "#FACC15",
+  pink: "#EC4899",
+  text: "#181524",
+  subtitle: "#6B7280",
+  subtitleLight: "#9CA3AF",
+  border: "#EFEFF6",
+  chipBg: "#F1EEFB",
 };
 
 type Service = {
@@ -44,15 +64,21 @@ type Service = {
 export default function ServicesListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const initialCategory = (params.category as string) || "";
 
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-  const categories = ["All", "Electric", "Plumbing", "Cleaning", "AC", "Painter", "Moving", "CCTV"];
+  const categories = ["All", "Electric", "Plumbing", "Cleaning", "AC Servicing", "Painter", "Moving", "CCTV"];
+
+  useEffect(() => {
+    if (params.category) {
+      setSelectedCategory(params.category as string);
+    }
+  }, [params.category]);
 
   useEffect(() => {
     fetchServices();
@@ -74,14 +100,14 @@ export default function ServicesListScreen() {
   const filteredServices = useMemo(() => {
     return services.filter((item) => {
       const matchesSearch =
-        item.title.toLowerCase().includes(search.toLowerCase()) ||
-        item.category.toLowerCase().includes(search.toLowerCase()) ||
+        item.title?.toLowerCase().includes(search.toLowerCase()) ||
+        item.category?.toLowerCase().includes(search.toLowerCase()) ||
         (item.providerName && item.providerName.toLowerCase().includes(search.toLowerCase()));
 
       const matchesCategory =
-        selectedCategory === "" ||
+        !selectedCategory ||
         selectedCategory === "All" ||
-        item.category.toLowerCase() === selectedCategory.toLowerCase();
+        item.category?.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
 
       return matchesSearch && matchesCategory;
     });
@@ -98,7 +124,7 @@ export default function ServicesListScreen() {
           <Image source={{ uri: item.image }} style={styles.image} />
         ) : (
           <View style={styles.noImage}>
-            <Ionicons name="image-outline" size={36} color={COLORS.subtitle} />
+            <Ionicons name="image-outline" size={36} color={COLORS.subtitleLight} />
           </View>
         )}
       </View>
@@ -109,7 +135,7 @@ export default function ServicesListScreen() {
         </Text>
 
         <View style={styles.ratingReviewRow}>
-          <Ionicons name="star" size={13} color="#FACC15" />
+          <Ionicons name="star" size={13} color={COLORS.gold} />
           <Text style={styles.ratingReviewText}>
             {(item.rating || 4.9).toFixed(1)} ({item.totalReviews || 120} Reviews)
           </Text>
@@ -158,7 +184,7 @@ export default function ServicesListScreen() {
           <Ionicons name="search-outline" size={18} color={COLORS.subtitle} />
           <TextInput
             placeholder="Search services or providers..."
-            placeholderTextColor={COLORS.subtitle}
+            placeholderTextColor={COLORS.subtitleLight}
             value={search}
             onChangeText={setSearch}
             style={styles.searchInput}
@@ -180,7 +206,7 @@ export default function ServicesListScreen() {
           keyExtractor={(item) => item}
           contentContainerStyle={styles.filterContainer}
           renderItem={({ item }) => {
-            const isSelected = selectedCategory === item || (item === "All" && selectedCategory === "");
+            const isSelected = selectedCategory === item || (item === "All" && !selectedCategory);
             return (
               <TouchableOpacity
                 style={[styles.filterChip, isSelected && styles.filterChipActive]}
@@ -210,7 +236,7 @@ export default function ServicesListScreen() {
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Ionicons name="search-outline" size={50} color={COLORS.subtitle} />
+                <Ionicons name="search-outline" size={50} color={COLORS.subtitleLight} />
                 <Text style={styles.emptyText}>No services found</Text>
                 <Text style={styles.emptySubText}>Try searching for something else</Text>
               </View>
@@ -263,7 +289,7 @@ const styles = StyleSheet.create({
   headerTitleText: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "700",
+    fontFamily: FONTS.bold,
   },
   searchBox: {
     flexDirection: "row",
@@ -280,7 +306,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: COLORS.text,
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily: FONTS.medium,
   },
   filterWrapper: {
     marginVertical: 12,
@@ -307,7 +333,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: FONTS.semibold,
     color: COLORS.subtitle,
   },
   filterTextActive: {
@@ -361,7 +387,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FONTS.bold,
     color: COLORS.text,
   },
   ratingReviewRow: {
@@ -373,7 +399,7 @@ const styles = StyleSheet.create({
   },
   ratingReviewText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: FONTS.semibold,
     color: COLORS.subtitle,
   },
   providerInfoRow: {
@@ -386,7 +412,7 @@ const styles = StyleSheet.create({
   providerInfoText: {
     fontSize: 12,
     color: COLORS.subtitle,
-    fontWeight: "500",
+    fontFamily: FONTS.medium,
   },
   locationContainer: {
     flexDirection: "row",
@@ -398,7 +424,7 @@ const styles = StyleSheet.create({
   location: {
     fontSize: 12,
     color: COLORS.subtitle,
-    fontWeight: "500",
+    fontFamily: FONTS.medium,
   },
   footer: {
     flexDirection: "row",
@@ -412,7 +438,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: FONTS.extrabold,
     color: COLORS.header,
   },
   bookNowBtn: {
@@ -423,7 +449,7 @@ const styles = StyleSheet.create({
   },
   bookNowText: {
     color: "#fff",
-    fontWeight: "700",
+    fontFamily: FONTS.bold,
     fontSize: 12,
   },
   empty: {
@@ -434,13 +460,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FONTS.bold,
     color: COLORS.text,
     marginTop: 10,
   },
   emptySubText: {
     fontSize: 13,
     color: COLORS.subtitle,
+    fontFamily: FONTS.regular,
     marginTop: 4,
   },
 });

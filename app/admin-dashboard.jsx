@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
-  RefreshControl,
-  Linking,
+    ActivityIndicator,
+    FlatList,
+    Linking,
+    RefreshControl,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -139,34 +139,8 @@ export default function AdminDashboard() {
     </View>
   );
 
-  // ================= BOOKING CARD (WITH SSLCOMMERZ PAYMENT) =================
+  // ================= BOOKING CARD =================
   const renderBooking = ({ item }) => {
-    const handlePayment = async () => {
-      try {
-        const response = await fetch(`${API}/payment/init`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bookingId: item._id,
-            amount: item.price || 500, // Fallback amount if item.price is missing
-            customerName: item.userName || "ShebaTech User",
-            customerEmail: item.userEmail,
-            customerPhone: item.phone || "01700000000",
-          }),
-        });
-
-        const data = await response.json();
-        if (data.success && data.url) {
-          Linking.openURL(data.url);
-        } else {
-          alert(data.message || "Payment initialization failed.");
-        }
-      } catch (err) {
-        console.log("Payment Error:", err);
-        alert("Something went wrong with the payment request.");
-      }
-    };
-
     return (
       <View style={styles.card}>
         <Text style={styles.title}>📦 {item.serviceTitle}</Text>
@@ -175,8 +149,6 @@ export default function AdminDashboard() {
         <Text style={[styles.status, { color: item.paymentStatus === "paid" ? "#22c55e" : "#ef4444" }]}>
           Payment: {item.paymentStatus || "unpaid"}
         </Text>
-
-        
       </View>
     );
   };
@@ -193,7 +165,8 @@ export default function AdminDashboard() {
             <View style={styles.statsGrid}>
               <Stat label="Users" value={stats?.totalUsers || 0} color="#6366f1" />
               <Stat label="Students" value={stats?.totalStudents || 0} color="#10b981" />
-              <Stat label="Providers" value={stats?.totalProviders || 0} color="#f59e0b" />
+              <Stat label="Total Providers" value={stats?.totalProviders || 0} color="#f59e0b" />
+              <Stat label="Pending Providers" value={providers.length} color="#eab308" />
               <Stat label="Services" value={stats?.totalServices || 0} color="#3b82f6" />
               <Stat label="Bookings" value={stats?.totalBookings || 0} color="#ef4444" />
             </View>

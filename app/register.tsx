@@ -1,17 +1,22 @@
 import React, { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Image,
-  SafeAreaView, StatusBar, KeyboardAvoidingView,
-  Platform, ScrollView,
+  ActivityIndicator, Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -25,6 +30,12 @@ export default function RegisterScreen() {
   const [studentId, setStudentId] = useState("");
   const [profileImage, setProfileImage] = useState(null);
 
+  // রিয়েল-টাইম এরর স্টেটস
+  const [nameError, setNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [studentIdError, setStudentIdError] = useState("");
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
@@ -37,9 +48,58 @@ export default function RegisterScreen() {
     }
   };
 
+  // ================= REAL-TIME NAME VALIDATION =================
+  const handleNameChange = (text) => {
+    setName(text);
+    if (!text.trim()) {
+      setNameError("Name is required");
+    } else {
+      setNameError("");
+    }
+  };
+
+  // ================= REAL-TIME EMAIL VALIDATION =================
+  const handleEmailChange = (text) => {
+    setEmail(text);
+    if (!text.trim()) {
+      setEmailError("Email is required");
+    } else if (!/\S+@\S+\.\S+/.test(text)) {
+      setEmailError("Please enter a valid email address");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  // ================= REAL-TIME PASSWORD VALIDATION =================
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    if (!text) {
+      setPasswordError("Password is required");
+    } else if (text.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+    } else {
+      setPasswordError("");
+    }
+  };
+
+  // ================= REAL-TIME STUDENT ID VALIDATION =================
+  const handleStudentIdChange = (text) => {
+    setStudentId(text);
+    if (role === "student" && !text.trim()) {
+      setStudentIdError("Student ID is required");
+    } else {
+      setStudentIdError("");
+    }
+  };
+
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name || !email || !password || (role === "student" && !studentId)) {
       alert("Fill all fields");
+      return;
+    }
+
+    if (nameError || emailError || passwordError || (role === "student" && studentIdError)) {
+      alert("Please fix the errors before registering");
       return;
     }
 
@@ -111,7 +171,10 @@ export default function RegisterScreen() {
               {["student", "provider", "admin"].map((item) => (
                 <TouchableOpacity
                   key={item}
-                  onPress={() => setRole(item)}
+                  onPress={() => {
+                    setRole(item);
+                    if (item !== "student") setStudentIdError("");
+                  }}
                   style={[styles.roleBtn, role === item && styles.activeRole]}
                 >
                   <Text>{item}</Text>
@@ -119,12 +182,43 @@ export default function RegisterScreen() {
               ))}
             </View>
 
-            <TextInput placeholder="Name" style={styles.input} onChangeText={setName} />
-            <TextInput placeholder="Email" style={styles.input} onChangeText={setEmail} />
-            <TextInput placeholder="Password" style={styles.input} secureTextEntry onChangeText={setPassword} />
+            <TextInput
+              placeholder="Name"
+              style={[styles.input, nameError ? styles.errorBorder : null]}
+              value={name}
+              onChangeText={handleNameChange}
+            />
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+
+            <TextInput
+              placeholder="Email"
+              style={[styles.input, emailError ? styles.errorBorder : null]}
+              value={email}
+              onChangeText={handleEmailChange}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+            <TextInput
+              placeholder="Password"
+              style={[styles.input, passwordError ? styles.errorBorder : null]}
+              secureTextEntry
+              value={password}
+              onChangeText={handlePasswordChange}
+            />
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
             {role === "student" && (
-              <TextInput placeholder="Student ID" style={styles.input} onChangeText={setStudentId} />
+              <>
+                <TextInput
+                  placeholder="Student ID"
+                  style={[styles.input, studentIdError ? styles.errorBorder : null]}
+                  value={studentId}
+                  onChangeText={handleStudentIdChange}
+                />
+                {studentIdError ? <Text style={styles.errorText}>{studentIdError}</Text> : null}
+              </>
             )}
 
             <TouchableOpacity style={styles.btn} onPress={handleRegister}>
@@ -166,6 +260,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "#ccc",
     padding: 10, marginVertical: 5,
     borderRadius: 10
+  },
+
+  errorBorder: {
+    borderColor: "#f43f5e",
+  },
+
+  errorText: {
+    color: "#f43f5e",
+    fontSize: 11,
+    fontWeight: "bold",
+    marginBottom: 5,
+    marginLeft: 4,
   },
 
   btn: {

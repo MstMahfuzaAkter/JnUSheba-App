@@ -1,22 +1,51 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  View,
-  Image,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Text,
-  RefreshControl,
-} from "react-native";
-import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
+
+const FONTS = {
+  regular: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
+  bold: "Poppins_700Bold",
+  extrabold: "Poppins_800ExtraBold",
+};
+
+const COLORS = {
+  header: "#5B21B6",
+  headerMid: "#7C3AED",
+  headerDark: "#3B0764",
+  background: "#F6F6FB",
+  cards: "#FFFFFF",
+  button: "#FF6B35",
+  success: "#16A34A",
+  successBg: "#DCFCE7",
+  danger: "#EF4444",
+  warning: "#D97706",
+  warningBg: "#FEF3C7",
+  purpleBg: "#F3E8F6",
+  blueBg: "#EFF6FF",
+  text: "#181524",
+  subtitle: "#6B7280",
+  subtitleLight: "#9CA3AF",
+  border: "#EFEFF6",
+  chipBg: "#F1EEFB",
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -37,7 +66,26 @@ export default function ProfileScreen() {
       }
 
       const parsed = JSON.parse(session);
-      setUser(parsed);
+      // ইমেইল দিয়ে ব্যাকএন্ডে রিকোয়েস্ট পাঠানো নিরাপদ ও নিখুঁত
+      const identifier = parsed?.email || parsed?._id || parsed?.id;
+
+      if (identifier) {
+        try {
+          const res = await fetch(`${API}/users/${identifier}`);
+          const latestData = await res.json();
+          if (latestData && (latestData._id || latestData.email)) {
+            setUser(latestData);
+            await AsyncStorage.setItem("user_session", JSON.stringify(latestData));
+          } else {
+            setUser(parsed);
+          }
+        } catch (e) {
+          console.log("Server sync error:", e);
+          setUser(parsed);
+        }
+      } else {
+        setUser(parsed);
+      }
 
       if (parsed?.role === "admin") {
         const res = await fetch(`${API}/admin-stats`, {
@@ -65,7 +113,6 @@ export default function ProfileScreen() {
     fetchProfileData();
   }, []);
 
-  // ================= LOGOUT =================
   const performLogout = async () => {
     try {
       await AsyncStorage.removeItem("user_session");
@@ -93,8 +140,8 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={{ marginTop: 10, color: "#64748b", fontWeight: "500" }}>Loading Dashboard...</Text>
+        <ActivityIndicator size="large" color={COLORS.headerMid} />
+        <Text style={{ marginTop: 10, color: COLORS.subtitle, fontFamily: FONTS.medium }}>Loading Dashboard...</Text>
       </View>
     );
   }
@@ -102,7 +149,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.loading}>
-        <Text style={{ color: "#64748b" }}>No active session found</Text>
+        <Text style={{ color: COLORS.subtitle, fontFamily: FONTS.medium }}>No active session found</Text>
       </View>
     );
   }
@@ -115,21 +162,21 @@ export default function ProfileScreen() {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.headerMid} />
       }
     >
       <Stack.Screen 
         options={{ 
-          title: "Dashboard", 
+          title: "Profile", 
           headerShown: true,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 5, padding: 8 }}>
-              <FontAwesome name="arrow-left" size={18} color="#0f172a" />
+              <FontAwesome name="arrow-left" size={18} color={COLORS.text} />
             </TouchableOpacity>
           ),
           headerRight: () => (
             <TouchableOpacity onPress={() => router.push("/edit-profile")} style={{ marginRight: 5, padding: 8 }}>
-              <FontAwesome name="gear" size={20} color="#0f172a" />
+              <FontAwesome name="gear" size={20} color={COLORS.text} />
             </TouchableOpacity>
           )
         }} 
@@ -137,14 +184,14 @@ export default function ProfileScreen() {
 
       {/* HEADER */}
       <LinearGradient
-        colors={["#0f172a", "#1e3a8a", "#3b82f6"]}
+        colors={[COLORS.headerDark, COLORS.header, COLORS.headerMid]}
         style={styles.header}
       >
         <Image
           source={{
             uri:
               user?.profileImage ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff`,
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=5B21B6&color=fff`,
           }}
           style={styles.avatar}
         />
@@ -161,19 +208,18 @@ export default function ProfileScreen() {
       {role === "admin" && (
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <FontAwesome name="dashboard" size={18} color="#2563eb" />
+            <FontAwesome name="dashboard" size={18} color={COLORS.headerMid} />
             <Text style={styles.sectionTitle}>Admin Overview</Text>
           </View>
 
           <View style={styles.statsGrid}>
-            <Stat label="Total Users" value={stats?.totalUsers || 0} icon="users" color="#eff6ff" textColor="#2563eb" />
-            <Stat label="Students" value={stats?.totalStudents || 0} icon="graduation-cap" color="#f0fdf4" textColor="#16a34a" />
-            <Stat label="Providers" value={stats?.totalProviders || 0} icon="briefcase" color="#fef3c7" textColor="#d97706" />
-            <Stat label="Services" value={stats?.totalServices || 0} icon="cogs" color="#f3e8ff" textColor="#9333ea" />
-            <Stat label="Bookings" value={stats?.totalBookings || 0} icon="calendar-check-o" color="#fee2e2" textColor="#dc2626" />
+            <Stat label="Total Users" value={stats?.totalUsers || 0} icon="users" color={COLORS.blueBg} textColor={COLORS.headerMid} />
+            <Stat label="Students" value={stats?.totalStudents || 0} icon="graduation-cap" color={COLORS.successBg} textColor={COLORS.success} />
+            <Stat label="Providers" value={stats?.totalProviders || 0} icon="briefcase" color={COLORS.warningBg} textColor={COLORS.warning} />
+            <Stat label="Services" value={stats?.totalServices || 0} icon="cogs" color={COLORS.purpleBg} textColor="#9333EA" />
+            <Stat label="Bookings" value={stats?.totalBookings || 0} icon="calendar-check-o" color="#FEE2E2" textColor={COLORS.danger} />
           </View>
 
-          {/* Admin Transactions Button */}
           <View style={{ marginTop: 15 }}>
             <Action icon="money" title="All Transactions" onPress={() => router.push("/history")} />
           </View>
@@ -184,8 +230,21 @@ export default function ProfileScreen() {
       {role === "provider" && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Provider Management</Text>
-          <Action icon="plus-circle" title="Add New Service" onPress={() => router.push("/add-service")} />
-          <Action icon="list-ul" title="My Services List" onPress={() => router.push("/my-services")} />
+          
+          {user?.isApproved ? (
+            <>
+              <Action icon="plus-circle" title="Add New Service" onPress={() => router.push("/add-service")} />
+              <Action icon="list-ul" title="My Services List" onPress={() => router.push("/my-services")} />
+            </>
+          ) : (
+            <View style={styles.pendingBox}>
+              <FontAwesome name="clock-o" size={18} color={COLORS.warning} />
+              <Text style={styles.pendingText}>
+                Your account is pending admin approval. You cannot add services yet.
+              </Text>
+            </View>
+          )}
+
           <Action icon="calendar" title="Manage Bookings" onPress={() => router.push("/my-bookings")} />
           <Action icon="history" title="Transaction History" onPress={() => router.push("/history")} />
         </View>
@@ -217,7 +276,7 @@ export default function ProfileScreen() {
   );
 }
 
-const Stat = ({ label, value, icon, color, textColor }) => (
+const Stat = ({ label, value, icon, color, textColor }: any) => (
   <View style={[styles.statCard, { backgroundColor: color }]}>
     <View style={styles.statTopRow}>
       <FontAwesome name={icon} size={16} color={textColor} />
@@ -227,27 +286,19 @@ const Stat = ({ label, value, icon, color, textColor }) => (
   </View>
 );
 
-const Action = ({ icon, title, onPress }) => (
+const Action = ({ icon, title, onPress }: any) => (
   <TouchableOpacity style={styles.action} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.actionIconContainer}>
-      <FontAwesome name={icon} size={16} color="#2563eb" />
+      <FontAwesome name={icon} size={16} color={COLORS.headerMid} />
     </View>
     <Text style={styles.actionText}>{title}</Text>
-    <FontAwesome name="angle-right" size={16} color="#94a3b8" />
+    <FontAwesome name="angle-right" size={16} color={COLORS.subtitleLight} />
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.background },
   header: {
     paddingTop: 30,
     paddingBottom: 35,
@@ -269,17 +320,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.8)",
     backgroundColor: "#fff",
   },
-  name: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
-    marginTop: 10,
-  },
-  email: {
-    color: "#cbd5e1",
-    fontSize: 13,
-    marginTop: 2,
-  },
+  name: { color: "#fff", fontSize: 22, fontFamily: FONTS.extrabold, marginTop: 10 },
+  email: { color: "#E9D5FF", fontSize: 13, marginTop: 2, fontFamily: FONTS.medium },
   roleBadge: {
     marginTop: 10,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
@@ -287,16 +329,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,25,0.2)",
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  roleText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
+  roleText: { color: "#fff", fontSize: 11, fontFamily: FONTS.extrabold, letterSpacing: 1 },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.cards,
     marginHorizontal: 16,
     marginTop: 16,
     padding: 18,
@@ -306,89 +343,61 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 12,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  statCard: {
-    width: "48%",
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  statTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  statLabel: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#475569",
-    fontWeight: "600",
-  },
+  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
+  sectionTitle: { fontSize: 16, fontFamily: FONTS.extrabold, color: COLORS.text, marginBottom: 12, marginLeft: 6 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
+  statCard: { width: "48%", padding: 14, borderRadius: 14, marginBottom: 4 },
+  statTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  statValue: { fontSize: 20, fontFamily: FONTS.extrabold },
+  statLabel: { marginTop: 6, fontSize: 12, color: COLORS.subtitle, fontFamily: FONTS.semibold },
   action: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.background,
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
   actionIconContainer: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.chipBg,
     justifyContent: "center",
     alignItems: "center",
   },
-  actionText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1e293b",
+  actionText: { flex: 1, marginLeft: 12, fontSize: 14, fontFamily: FONTS.semibold, color: COLORS.text },
+  pendingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warningBg,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
   },
+  pendingText: { flex: 1, marginLeft: 10, fontSize: 12, color: COLORS.warning, fontWeight: "600" },
   logout: {
     flexDirection: "row",
     marginHorizontal: 16,
-    marginTop: 20,
+    marginTop: 25,
     marginBottom: 40,
-    backgroundColor: "#ef4444",
+    backgroundColor: COLORS.danger,
     paddingVertical: 14,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     elevation: 4,
-    shadowColor: "#ef4444",
+    shadowColor: COLORS.danger,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
   },
-  logoutText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
+  logoutText: { color: "#fff", fontSize: 15, fontFamily: FONTS.bold },
 });

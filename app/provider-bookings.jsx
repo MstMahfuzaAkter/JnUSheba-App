@@ -1,19 +1,19 @@
-import React, { useEffect, useState } from "react";
-import {
-  View as RNView,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    View as RNView,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+} from "react-native";
 
-const API = "https://junsheba.vercel.app";
+const API = "https://jnushebaserver.onrender.com";
 
 export default function ProviderBookings() {
   // 💥 <Booking[]> এবং টাইপস্ক্রিপ্টের সিনট্যাক্স বাদ দেওয়া হয়েছে
