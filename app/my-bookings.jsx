@@ -3,13 +3,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const API = "https://jnushebaserver.onrender.com";
@@ -32,8 +33,6 @@ export default function MyBookings() {
       const user = JSON.parse(session);
       setUserRole(user.role || "student");
 
-      // রোল অনুযায়ী সঠিক এন্ডপয়েন্টে ফেচ করা হচ্ছে
-      // যদি প্রোভাইডার হয় তবে তার সার্ভিস বুকিং, আর স্টুডেন্ট হলে ইউজারের বুকিং ফেচ করবে
       const endpoint =
         user.role === "provider"
           ? `${API}/bookings/provider/${user.email}`
@@ -65,7 +64,6 @@ export default function MyBookings() {
     loadBookings();
   }, []);
 
-  // ================= UPDATE STATUS =================
   const updateStatus = async (id, status) => {
     try {
       const res = await fetch(`${API}/bookings/${id}`, {
@@ -93,20 +91,24 @@ export default function MyBookings() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={{ marginTop: 10, color: "#64748b" }}>Loading Bookings...</Text>
+        <ActivityIndicator size="large" color="#0284c7" />
+        <Text style={styles.loadingText}>Loading Bookings...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: "My Bookings", headerBackTitle: "Back" }} />
-      
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>📦 Booking List</Text>
-        <Text style={styles.headerSubtitle}>Total: {bookings.length} bookings found</Text>
-      </View>
+      <Stack.Screen 
+        options={{ 
+          title: "My Bookings", 
+          headerBackTitle: "Back",
+          headerStyle: { backgroundColor: "#ffffff" },
+          headerTintColor: "#0f172a",
+          headerTitleStyle: { fontWeight: "600", fontSize: 17 },
+          headerShadowVisible: false,
+        }} 
+      />
 
       <FlatList
         data={bookings}
@@ -118,13 +120,24 @@ export default function MyBookings() {
             onUpdateStatus={updateStatus} 
           />
         )}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0284c7" />
+        }
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Booking List</Text>
+            <Text style={styles.headerSubtitle}>Total: {bookings.length} bookings found</Text>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <FontAwesome name="calendar-o" size={48} color="#94a3b8" />
-            <Text style={styles.emptyText}>No bookings found</Text>
+            <View style={styles.emptyIconWrapper}>
+              <FontAwesome name="calendar-o" size={32} color="#0284c7" />
+            </View>
+            <Text style={styles.emptyTitle}>No Bookings Found</Text>
+            <Text style={styles.emptySubtitle}>You don't have any active bookings at the moment.</Text>
           </View>
         }
       />
@@ -132,17 +145,19 @@ export default function MyBookings() {
   );
 }
 
-// আলাদা কম্পোনেন্ট হিসেবে রেন্ডার করা হলো যাতে রি-রেন্ডারিং পারফরমেন্স ভালো থাকে
 const BookingCard = ({ item, userRole, onUpdateStatus }) => {
   const getStatusStyle = (status) => {
-    switch (status) {
+    const formatted = (status || "").toLowerCase();
+    switch (formatted) {
       case "accepted":
       case "paid":
-        return { bg: "#f0fdf4", color: "#16a34a" };
+      case "completed":
+      case "valid":
+        return { bg: "#dcfce7", color: "#16a34a" };
       case "rejected":
       case "cancelled":
       case "failed":
-        return { bg: "#fef2f2", color: "#dc2626" };
+        return { bg: "#fee2e2", color: "#dc2626" };
       default:
         return { bg: "#fef3c7", color: "#d97706" };
     }
@@ -150,10 +165,21 @@ const BookingCard = ({ item, userRole, onUpdateStatus }) => {
 
   const badgeStyle = getStatusStyle(item.status || item.paymentStatus);
 
+  // সব সম্ভাব্য ফিল্ড চেক করে সঠিক অ্যামাউন্ট রেন্ডার করার জন্য
+  const displayAmount = 
+    item.amount || 
+    item.total_amount || 
+    item.payment?.amount || 
+    item.transaction?.amount || 
+    item.price || 
+    0;
+
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
-        <Text style={styles.title} numberOfLines={1}>📌 {item.serviceTitle || "Service Booking"}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {item.serviceTitle || item.title || "Service Booking"}
+        </Text>
         <View style={[styles.badge, { backgroundColor: badgeStyle.bg }]}>
           <Text style={[styles.badgeText, { color: badgeStyle.color }]}>
             {(item.status || item.paymentStatus || "pending").toUpperCase()}
@@ -162,35 +188,47 @@ const BookingCard = ({ item, userRole, onUpdateStatus }) => {
       </View>
 
       <View style={styles.detailsContainer}>
-        <Text style={styles.text}>
-          <Text style={styles.label}>Amount: </Text>৳ {item.amount || 0}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.label}>{userRole === "provider" ? "Customer" : "Provider"}: </Text>
-          {userRole === "provider" ? (item.customerEmail || item.userEmail) : (item.providerEmail || "N/A")}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.label}>Date: </Text>
-          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Recent"}
-        </Text>
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Amount</Text>
+          <Text style={styles.amountText}>৳{displayAmount}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>{userRole === "provider" ? "Customer" : "Provider"}</Text>
+          <Text style={styles.valueText} numberOfLines={1}>
+            {userRole === "provider" ? (item.customerEmail || item.userEmail || item.email) : (item.providerEmail || "N/A")}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Date</Text>
+          <Text style={styles.valueText}>
+            {item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric"
+            }) : "Recent"}
+          </Text>
+        </View>
       </View>
 
-      {/* শুধুমাত্র প্রোভাইডার যদি পেন্ডিং থাকে তবে এক্সেপ্ট/রিজেক্ট বাটন দেখাবে */}
       {userRole === "provider" && item.status === "pending" && (
         <View style={styles.btnRow}>
           <TouchableOpacity
             style={[styles.btn, styles.acceptBtn]}
             onPress={() => onUpdateStatus(item._id, "accepted")}
+            activeOpacity={0.8}
           >
-            <FontAwesome name="check" size={14} color="#fff" style={{ marginRight: 6 }} />
+            <FontAwesome name="check" size={13} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.btnText}>Accept</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.btn, styles.rejectBtn]}
             onPress={() => onUpdateStatus(item._id, "rejected")}
+            activeOpacity={0.8}
           >
-            <FontAwesome name="times" size={14} color="#fff" style={{ marginRight: 6 }} />
+            <FontAwesome name="times" size={13} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.btnText}>Reject</Text>
           </TouchableOpacity>
         </View>
@@ -199,11 +237,9 @@ const BookingCard = ({ item, userRole, onUpdateStatus }) => {
   );
 };
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: "#f8fafc",
   },
   loadingContainer: {
@@ -212,12 +248,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#f8fafc",
   },
+  loadingText: { 
+    marginTop: 12, 
+    color: "#64748b", 
+    fontSize: 14,
+    fontWeight: "500" 
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 30,
+  },
   headerContainer: {
     marginBottom: 16,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#0f172a",
   },
   headerSubtitle: {
@@ -226,51 +272,67 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 14,
     borderRadius: 16,
-    elevation: 3,
-    shadowColor: "#000",
+    shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#f1f5f9",
   },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#1e293b",
     flex: 1,
     marginRight: 8,
   },
   badge: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: "bold",
+    fontSize: 10,
+    fontWeight: "700",
     letterSpacing: 0.5,
   },
   detailsContainer: {
-    gap: 4,
+    gap: 8,
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    borderRadius: 10,
   },
-  text: {
-    fontSize: 14,
-    color: "#475569",
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   label: {
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#64748b",
+  },
+  valueText: {
+    fontSize: 13,
     color: "#1e293b",
+    fontWeight: "600",
+    maxWidth: "65%",
+  },
+  amountText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f172a",
   },
   btnRow: {
     flexDirection: "row",
@@ -293,18 +355,34 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
+    fontWeight: "700",
+    fontSize: 13,
   },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 60,
+    paddingTop: 80,
+    paddingHorizontal: 40,
   },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 15,
-    color: "#94a3b8",
-    fontWeight: "500",
+  emptyIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e0f2fe",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  emptyTitle: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: "#1e293b",
+    marginBottom: 6,
+  },
+  emptySubtitle: { 
+    textAlign: "center",
+    color: "#64748b", 
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

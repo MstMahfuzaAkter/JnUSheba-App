@@ -1,21 +1,21 @@
-import React from 'react';
-import { StyleSheet, ScrollView, View as RNView, Dimensions } from 'react-native';
 import { Text, View } from '@/components/Themed';
-import { Stack } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Stack } from 'expo-router';
+import React from 'react';
+import { Dimensions, View as RNView, ScrollView, StyleSheet } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 // ================= FONTS =================
-const FONTS = {
-  regular: "Poppins_400Regular",
-  medium: "Poppins_500Medium",
-  semibold: "Poppins_600SemiBold",
-  bold: "Poppins_700Bold",
-  extrabold: "Poppins_800ExtraBold",
-};
 
+const FONTS = {
+  regular: "Times New Roman",
+  medium: "Times New Roman",
+  semibold: "Times New Roman",
+  bold: "Times New Roman",
+  extrabold: "Times New Roman",
+};
 // ================= COLOR SYSTEM =================
 const COLORS = {
   header: "#5B21B6",

@@ -1,29 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    RefreshControl,
-    StatusBar,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
 } from "react-native";
 
 import { Text, View } from "@/components/Themed";
 import {
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
 import {
-    FontAwesome5,
-    Ionicons,
-    MaterialCommunityIcons,
+  FontAwesome5,
+  Ionicons,
+  MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
@@ -33,6 +33,12 @@ const API = "https://jnushebaserver.onrender.com";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
+// FIX: this was hardcoded to "Times New Roman" for every weight, but
+// useFonts() below actually loads the Poppins family. Since the string
+// here didn't match any loaded font name, RN silently fell back to the
+// system font everywhere — every "bold"/"extrabold" label rendered in the
+// same weight as "regular". Restored to the Poppins names that are
+// actually registered by useFonts().
 const FONTS = {
   regular: "Poppins_400Regular",
   medium: "Poppins_500Medium",
@@ -78,13 +84,34 @@ type Service = {
   title: string;
   description: string;
   price: number;
+  priceType?: "fixed" | "hourly" | "starting";
   category: string;
+  subCategory?: string;
   location: string;
+  district?: string;
+  area?: string;
+  address?: string;
   image?: string;
+  gallery?: string[];
   rating?: number;
   totalReviews?: number;
+  totalBookings?: number;
+  providerId?: string;
   providerName?: string;
   providerEmail?: string;
+  phone?: string;
+  availability?: "available" | "busy" | "offline";
+  workingDays?: string[];
+  startTime?: string;
+  endTime?: string;
+  experience?: number;
+  serviceDuration?: string;
+  warranty?: string;
+  verified?: boolean;
+  featured?: boolean;
+  status?: "active" | "inactive" | string;
+  tags?: string[];
+  createdAt?: string;
   reviews?: EmbeddedReview[];
 };
 
@@ -237,12 +264,8 @@ export default function ServicesScreen() {
     setDynamicGreeting();
   }, []);
 
-  // FIX (auto-refresh): fetchUserData/fetchServices used to run only inside
-  // a mount-only useEffect, so navigating away (e.g. to book a service or
-  // leave a review) and coming back showed stale data until a full manual
-  // reload. useFocusEffect re-runs every time this screen regains focus —
-  // including the very first mount — so data is always fresh without any
-  // manual reload.
+  // Refetch every time this screen regains focus (e.g. after booking or
+  // leaving a review) so rating/review data never goes stale.
   useFocusEffect(
     useCallback(() => {
       fetchUserData();
@@ -250,8 +273,6 @@ export default function ServicesScreen() {
     }, [])
   );
 
-  // Auto-rotate banners. Wrapped in try/catch since scrollToIndex can throw
-  // if the list hasn't finished its initial layout measurement yet.
   useEffect(() => {
     const timer = setInterval(() => {
       setBannerIndex((prev) => {
@@ -267,8 +288,13 @@ export default function ServicesScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const activeServices = useMemo(
+    () => services.filter((s) => s.status !== "inactive"),
+    [services]
+  );
+
   const filteredServices = useMemo(() => {
-    return services.filter((item) => {
+    return activeServices.filter((item) => {
       const matchesSearch =
         item.title.toLowerCase().includes(search.toLowerCase()) ||
         item.category.toLowerCase().includes(search.toLowerCase());
@@ -279,31 +305,41 @@ export default function ServicesScreen() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [search, selectedCategory, services]);
+  }, [search, selectedCategory, activeServices]);
 
   const popularServices = useMemo(
-    () => [...services].sort((a, b) => (b.totalReviews || 0) - (a.totalReviews || 0)).slice(0, 6),
-    [services]
+    () => [...activeServices].sort((a, b) => (b.totalReviews || 0) - (a.totalReviews || 0)).slice(0, 6),
+    [activeServices]
   );
 
   const topRatedServices = useMemo(
-    () => [...services].filter((s) => (s.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 6),
-    [services]
+    () => [...activeServices].filter((s) => (s.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 6),
+    [activeServices]
   );
 
-  const recommendedServices = useMemo(() => [...services].reverse().slice(0, 6), [services]);
+  const recommendedServices = useMemo(() => [...activeServices].reverse().slice(0, 6), [activeServices]);
 
-  // FIX (dynamic): each provider's card used to show a hardcoded "4.9"
-  // rating and a fake "Xm Away" distance no matter what. The backend
-  // already returns every service's real `rating`/`totalReviews`, and
-  // every provider owns 1+ services, so we can derive an honest average
-  // rating and a real "services listed" count per provider — no new
-  // endpoint required.
+  // Backend already stamps every service with `createdAt` on insert (see
+  // POST /services), so the newest additions can be derived without a new
+  // endpoint — sort descending and take the latest 5.
+  const recentServices = useMemo(
+    () =>
+      [...activeServices]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 5),
+    [activeServices]
+  );
+
+  const featuredServices = useMemo(
+    () => activeServices.filter((s) => s.featured).slice(0, 6),
+    [activeServices]
+  );
+
   const providerStats = useMemo(() => {
     const stats: Record<string, { avgRating: number; totalReviews: number; serviceCount: number }> = {};
     const grouped: Record<string, Service[]> = {};
 
-    for (const s of services) {
+    for (const s of activeServices) {
       if (!s.providerEmail) continue;
       if (!grouped[s.providerEmail]) grouped[s.providerEmail] = [];
       grouped[s.providerEmail].push(s);
@@ -320,27 +356,22 @@ export default function ServicesScreen() {
     }
 
     return stats;
-  }, [services]);
+  }, [activeServices]);
 
   const nearbyProviders = useMemo(() => {
     const seen = new Set<string>();
     const list: Service[] = [];
-    for (const s of services) {
+    for (const s of activeServices) {
       if (s.providerEmail && !seen.has(s.providerEmail)) {
         seen.add(s.providerEmail);
         list.push(s);
       }
     }
     return list.slice(0, 6);
-  }, [services]);
+  }, [activeServices]);
 
-  // FIX (dynamic): the "Recent Student Reviews" rail used to be two
-  // hand-written fake reviews that never changed. Real reviews already
-  // arrive embedded on each service document (POST /reviews pushes them
-  // there), so pull them out, tag each with which service/provider it's
-  // for, and show the most recent ones actually left by real students.
   const recentReviews = useMemo(() => {
-    const flattened = services.flatMap((s) =>
+    const flattened = activeServices.flatMap((s) =>
       (s.reviews || []).map((r) => ({
         ...r,
         serviceTitle: s.title,
@@ -350,7 +381,7 @@ export default function ServicesScreen() {
     return flattened
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 8);
-  }, [services]);
+  }, [activeServices]);
 
   const goToService = (id: string) => {
     router.push({ pathname: "/service-details", params: { id } });
@@ -366,6 +397,24 @@ export default function ServicesScreen() {
     return `${name.slice(0, 2)}***${name.slice(-1)}`;
   };
 
+  const formatPrice = (item: Service) => {
+    if (item.priceType === "hourly") return `৳${item.price}/hr`;
+    if (item.priceType === "starting") return `From ৳${item.price}`;
+    return `৳${item.price}`;
+  };
+
+  const getLocationText = (item: Service) => {
+    if (item.area && item.district) return `${item.area}, ${item.district}`;
+    if (item.area) return item.area;
+    return item.location || "Jagannath University Area";
+  };
+
+  const getAvailabilityMeta = (availability?: string) => {
+    if (availability === "busy") return { label: "Busy", color: "#F59E0B" };
+    if (availability === "offline") return { label: "Offline", color: COLORS.danger };
+    return { label: "Available", color: COLORS.success };
+  };
+
   const renderCategoryIcon = (cat: (typeof CATEGORIES)[0], isSelected: boolean) => {
     const iconColor = isSelected ? "#fff" : cat.color;
     if (cat.lib === "MaterialCommunityIcons")
@@ -378,6 +427,7 @@ export default function ServicesScreen() {
   const renderItem = ({ item }: { item: Service }) => {
     const catColor = getCategoryColor(item.category);
     const hasRating = (item.rating || 0) > 0;
+    const availabilityMeta = getAvailabilityMeta(item.availability);
     return (
       <TouchableOpacity activeOpacity={0.95} style={styles.card} onPress={() => goToService(item._id)}>
         <View style={styles.imageContainer}>
@@ -394,17 +444,34 @@ export default function ServicesScreen() {
         </View>
 
         <View style={styles.cardBody}>
-          <Text style={styles.title} numberOfLines={1}>
-            {item.title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {item.verified && (
+              <Ionicons name="checkmark-circle" size={16} color={COLORS.header} style={{ marginLeft: 4 }} />
+            )}
+          </View>
           <View style={styles.ratingReviewRow}>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={12} color={COLORS.gold} />
+              {/* FIX: this used to hardcode "5"/"5 " here whenever a
+                  service had no rating yet, which showed a fake perfect
+                  score for brand-new listings. Restored to "New" so it
+                  honestly reflects that the backend has no rating for it
+                  (rating stays 0 / totalReviews 0 until a real review
+                  comes in via POST /reviews). */}
               <Text style={styles.ratingReviewText}>{hasRating ? item.rating!.toFixed(1) : "New"}</Text>
             </View>
             {hasRating && (
               <Text style={styles.reviewCountText}>({item.totalReviews || 0} reviews)</Text>
             )}
+            <View style={styles.availabilityRow}>
+              <View style={[styles.availabilityDot, { backgroundColor: availabilityMeta.color }]} />
+              <Text style={[styles.availabilityText, { color: availabilityMeta.color }]}>
+                {availabilityMeta.label}
+              </Text>
+            </View>
           </View>
           <View style={styles.providerInfoRow}>
             <Ionicons name="person-outline" size={13} color={COLORS.subtitle} />
@@ -415,11 +482,11 @@ export default function ServicesScreen() {
           <View style={styles.locationContainer}>
             <Ionicons name="location-outline" size={13} color={COLORS.subtitle} />
             <Text style={styles.location} numberOfLines={1}>
-              {item.location || "Jagannath University Area"}
+              {getLocationText(item)}
             </Text>
           </View>
           <View style={styles.footer}>
-            <Text style={styles.price}>৳{item.price}</Text>
+            <Text style={styles.price}>{formatPrice(item)}</Text>
             <TouchableOpacity style={styles.bookNowBtn} onPress={() => goToService(item._id)}>
               <Text style={styles.bookNowText}>Details</Text>
               <Ionicons name="arrow-forward" size={12} color="#fff" style={{ marginLeft: 4 }} />
@@ -443,6 +510,7 @@ export default function ServicesScreen() {
         )}
         <View style={styles.miniRatingRow}>
           <Ionicons name="star" size={11} color={COLORS.gold} />
+          {/* FIX: same fake-"5" bug as above, now correctly falls back to "New" */}
           <Text style={styles.miniRatingText}>
             {hasRating ? `${item.rating!.toFixed(1)} (${item.totalReviews || 0})` : "New"}
           </Text>
@@ -450,7 +518,7 @@ export default function ServicesScreen() {
         <Text style={styles.miniTitle} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.miniPrice}>৳{item.price}</Text>
+        <Text style={styles.miniPrice}>{formatPrice(item)}</Text>
       </TouchableOpacity>
     );
   };
@@ -473,6 +541,7 @@ export default function ServicesScreen() {
         </Text>
         <View style={styles.providerRatingRow}>
           <Ionicons name="star" size={11} color={COLORS.gold} />
+          {/* FIX: same fake-"5" bug as above, now correctly falls back to "New" */}
           <Text style={styles.providerRatingText}>{hasRating ? stats!.avgRating.toFixed(1) : "New"}</Text>
         </View>
         <Text style={styles.providerDistance} numberOfLines={1}>
@@ -482,27 +551,13 @@ export default function ServicesScreen() {
     );
   };
 
+  // ================= HEADER: everything before the actual service list =================
+  // Order: Banner -> Emergency -> Categories -> Featured -> Recently Added ->
+  // Offers -> Features -> Popular -> Zones -> Providers -> Reviews -> Top
+  // Rated -> Recommended -> Help Center banner -> Search bar -> "All
+  // Services" title -> [main service list renders next, as FlatList data].
   const ListHeader = (
     <View style={{ backgroundColor: "transparent" }}>
-      {/* SEARCH BAR OVERLAPPING TOP HEADER */}
-      <View style={styles.searchWrapper}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color={COLORS.header} />
-          <TextInput
-            placeholder="Search JnU_ShabaLink services..."
-            placeholderTextColor={COLORS.subtitleLight}
-            value={search}
-            onChangeText={setSearch}
-            style={styles.searchInput}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")} style={{ marginRight: 6 }}>
-              <Ionicons name="close-circle" size={18} color={COLORS.subtitleLight} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
       {/* BANNER SLIDER */}
       <FlatList
         ref={bannerRef}
@@ -512,7 +567,7 @@ export default function ServicesScreen() {
         snapToInterval={BANNER_WIDTH + 12}
         decelerationRate="fast"
         keyExtractor={(b) => b.id}
-        style={{ marginTop: 18 }}
+        style={{ marginTop: 14 }}
         contentContainerStyle={{ gap: 12 }}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / (BANNER_WIDTH + 12));
@@ -522,7 +577,6 @@ export default function ServicesScreen() {
           const hasError = bannerImageErrors[item.id];
           return (
             <View style={[styles.bannerCard, { backgroundColor: item.bgColor, width: BANNER_WIDTH }]}>
-              {/* decorative accent circle for depth without extra deps */}
               <View style={[styles.bannerDecorCircle, { backgroundColor: item.bgColorDark }]} />
 
               <View style={styles.bannerLeftContent}>
@@ -541,8 +595,6 @@ export default function ServicesScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* If the image fails to load, fall back to a simple icon
-                  on the colored background instead of a blank gap. */}
               <View style={styles.bannerRightImageContainer}>
                 {!hasError ? (
                   <Image
@@ -619,6 +671,42 @@ export default function ServicesScreen() {
           })}
         </View>
       </View>
+
+      {/* FEATURED SERVICES */}
+      {featuredServices.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>🌟 Featured Services</Text>
+            <Text style={styles.arrowText}>→</Text>
+          </View>
+          <FlatList
+            data={featuredServices}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item._id + "featured"}
+            renderItem={({ item }) => renderMiniCard(item)}
+            contentContainerStyle={{ gap: 12 }}
+          />
+        </View>
+      )}
+
+      {/* RECENTLY ADDED — latest 5 services by createdAt */}
+      {recentServices.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>🆕 Recently Added</Text>
+            <Text style={styles.arrowText}>→</Text>
+          </View>
+          <FlatList
+            data={recentServices}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item._id + "recent"}
+            renderItem={({ item }) => renderMiniCard(item)}
+            contentContainerStyle={{ gap: 12 }}
+          />
+        </View>
+      )}
 
       {/* STUDENT PROMO OFFERS */}
       <View style={styles.section}>
@@ -706,9 +794,7 @@ export default function ServicesScreen() {
         </View>
       )}
 
-      {/* RECENT STUDENT REVIEWS — now built from real embedded review data
-          instead of a hardcoded array. Hidden entirely if nobody has left
-          a review yet, rather than showing fake ones. */}
+      {/* RECENT STUDENT REVIEWS */}
       {recentReviews.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>💬 Recent Student Reviews</Text>
@@ -720,17 +806,20 @@ export default function ServicesScreen() {
             contentContainerStyle={{ gap: 12 }}
             renderItem={({ item }) => (
               <View style={styles.reviewCard}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginBottom: 6, backgroundColor: "transparent" }}>
-                  {[...Array(Math.round(item.rating))].map((_, i) => (
-                    <Ionicons key={i} name="star" size={12} color={COLORS.gold} />
-                  ))}
+                <View style={styles.reviewTop}>
+                  <Text style={styles.reviewRatingText}>⭐ {item.rating}/5</Text>
+                  <Text style={styles.reviewEmailText} numberOfLines={1}>
+                    {maskEmail(item.userEmail)}
+                  </Text>
                 </View>
                 <Text style={styles.reviewText} numberOfLines={3}>
-                  "{item.comment}"
+                  {item.comment}
                 </Text>
-                <Text style={styles.reviewName}>{maskEmail(item.userEmail)}</Text>
                 <Text style={styles.reviewRole} numberOfLines={1}>
                   {item.serviceTitle}
+                </Text>
+                <Text style={styles.reviewDateText}>
+                  {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ""}
                 </Text>
               </View>
             )}
@@ -777,14 +866,32 @@ export default function ServicesScreen() {
         <Ionicons name="chevron-forward" size={18} color={COLORS.subtitleLight} />
       </TouchableOpacity>
 
+      {/* SEARCH BAR — after the Help Center banner, right before the service list */}
+      <View style={[styles.searchWrapper, { marginTop: 18 }]}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={20} color={COLORS.header} />
+          <TextInput
+            placeholder="Search JnU_ShabaLink services..."
+            placeholderTextColor={COLORS.subtitleLight}
+            value={search}
+            onChangeText={setSearch}
+            style={styles.searchInput}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")} style={{ marginRight: 6 }}>
+              <Ionicons name="close-circle" size={18} color={COLORS.subtitleLight} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* "All Services" title — right before the actual service list renders */}
       <Text style={[styles.sectionTitle, { marginTop: 18 }]}>
         {selectedCategory === "All" ? "All Campus Services" : `${selectedCategory} Services`}
       </Text>
     </View>
   );
 
-  // Wait for the shared font family to finish loading before rendering
-  // any text, so nothing flashes in the wrong typeface on first paint.
   if (!fontsLoaded) {
     return (
       <View style={[styles.container, styles.center]}>
@@ -799,7 +906,6 @@ export default function ServicesScreen() {
 
       {/* MODERN TOP HEADER */}
       <View style={styles.header}>
-        {/* decorative circles for a layered, non-flat header */}
         <View style={styles.headerDecorCircleLarge} />
         <View style={styles.headerDecorCircleSmall} />
 
@@ -827,7 +933,7 @@ export default function ServicesScreen() {
         </View>
       </View>
 
-      {/* BODY */}
+      {/* BODY: Banner -> Search -> All Services list -> everything else */}
       <View style={styles.body}>
         {loading ? (
           <View style={styles.center}>
@@ -979,10 +1085,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.header,
   },
 
-  // SEARCH BAR OVERLAP
+  // SEARCH BAR — now sits below the banner, not overlapping the header,
+  // so it uses normal positive spacing instead of a negative overlap margin.
   searchWrapper: {
     backgroundColor: "transparent",
-    marginTop: -22,
+    marginTop: 14,
   },
   searchBox: {
     flexDirection: "row",
@@ -1301,12 +1408,31 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: 14,
   },
+  reviewTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "transparent",
+    marginBottom: 6,
+    gap: 6,
+  },
+  reviewRatingText: {
+    fontSize: 12,
+    fontFamily: FONTS.extrabold,
+    color: "#f59e0b",
+  },
+  reviewEmailText: {
+    fontSize: 10,
+    fontFamily: FONTS.medium,
+    color: COLORS.subtitle,
+    flexShrink: 1,
+    textAlign: "right",
+  },
   reviewText: {
-    fontSize: 11,
-    fontFamily: FONTS.regular,
+    fontSize: 12,
+    fontFamily: FONTS.medium,
     color: COLORS.text,
-    fontStyle: "italic",
-    marginBottom: 8,
+    marginBottom: 6,
     lineHeight: 16,
   },
   reviewName: {
@@ -1318,6 +1444,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: FONTS.regular,
     color: COLORS.subtitle,
+  },
+  reviewDateText: {
+    fontSize: 9,
+    fontFamily: FONTS.regular,
+    color: COLORS.subtitleLight,
+    marginTop: 4,
   },
 
   section: { marginTop: 18, backgroundColor: "transparent" },
@@ -1434,12 +1566,33 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     color: COLORS.text,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
   ratingReviewRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 6,
     gap: 6,
     backgroundColor: "transparent",
+  },
+  availabilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    backgroundColor: "transparent",
+  },
+  availabilityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  availabilityText: {
+    fontSize: 10,
+    fontFamily: FONTS.bold,
   },
   ratingPill: {
     flexDirection: "row",

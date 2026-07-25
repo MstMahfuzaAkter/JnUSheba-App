@@ -4,28 +4,27 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const API = "https://jnushebaserver.onrender.com";
 
 const FONTS = {
-  regular: "Poppins_400Regular",
-  medium: "Poppins_500Medium",
-  semibold: "Poppins_600SemiBold",
-  bold: "Poppins_700Bold",
-  extrabold: "Poppins_800ExtraBold",
+  regular: "Times New Roman",
+  medium: "Times New Roman",
+  semibold: "Times New Roman",
+  bold: "Times New Roman",
+  extrabold: "Times New Roman",
 };
-
 const COLORS = {
   header: "#5B21B6",
   headerMid: "#7C3AED",

@@ -3,15 +3,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { io } from "socket.io-client";
 
@@ -45,7 +46,7 @@ function BookingTracker({ currentStatus }) {
     <View style={trackerStyles.container}>
       <View style={trackerStyles.headerRow}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Ionicons name="pulse" size={16} color="#4f46e5" style={{ marginRight: 6 }} />
+          <Ionicons name="pulse" size={14} color="#4f46e5" style={{ marginRight: 6 }} />
           <Text style={trackerStyles.headerTitle}>Live Tracking Status</Text>
         </View>
         <View style={trackerStyles.liveBadge}>
@@ -61,7 +62,6 @@ function BookingTracker({ currentStatus }) {
 
           return (
             <View key={step.key} style={trackerStyles.stepWrapper}>
-              {/* Connecting Line */}
               {index < STEPS.length - 1 && (
                 <View
                   style={[
@@ -80,7 +80,7 @@ function BookingTracker({ currentStatus }) {
               >
                 <Ionicons
                   name={isCompleted ? "checkmark" : step.icon}
-                  size={isCurrent ? 15 : 13}
+                  size={isCurrent ? 14 : 12}
                   color={isCompleted || isCurrent ? "#fff" : "#94a3b8"}
                 />
               </View>
@@ -107,16 +107,44 @@ export default function StudentDashboard() {
   const router = useRouter();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [reviewingBooking, setReviewingBooking] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+
+  const loadBookings = async (isRefresh = false) => {
+    try {
+      if (!isRefresh) setLoading(true);
+      const session = await AsyncStorage.getItem("user_session");
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+      const user = JSON.parse(session);
+
+      const res = await fetch(`${API}/bookings/user/${user.email}`);
+      const data = await res.json();
+
+      setBookings(Array.isArray(data) ? data : data.bookings || []);
+    } catch (err) {
+      console.log("Load Bookings Error:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
       loadBookings();
     }, [])
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadBookings(true);
+  }, []);
 
   useEffect(() => {
     bookings.forEach((b) => {
@@ -136,49 +164,37 @@ export default function StudentDashboard() {
     };
   }, [bookings]);
 
-  const loadBookings = async () => {
-    try {
-      const session = await AsyncStorage.getItem("user_session");
-      if (!session) {
-        setLoading(false);
-        return;
-      }
-      const user = JSON.parse(session);
-
-      const res = await fetch(`${API}/bookings/user/${user.email}`);
-      const data = await res.json();
-
-      setBookings(Array.isArray(data) ? data : data.bookings || []);
-    } catch (err) {
-      console.log("Load Bookings Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const cancelBooking = async (booking) => {
-    try {
-      const session = await AsyncStorage.getItem("user_session");
-      const user = JSON.parse(session);
+    Alert.alert("Confirm Cancellation", "Are you sure you want to delete this booking?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes, Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const session = await AsyncStorage.getItem("user_session");
+            const user = JSON.parse(session);
 
-      const res = await fetch(`${API}/bookings/cancel/${booking._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email }),
-      });
+            const res = await fetch(`${API}/bookings/cancel/${booking._id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: user.email }),
+            });
 
-      const data = await res.json();
+            const data = await res.json();
 
-      if (data.success) {
-        Alert.alert("Deleted", "Booking has been deleted successfully.");
-        setBookings((prev) => prev.filter((b) => b._id !== booking._id));
-      } else {
-        Alert.alert("Cannot Cancel", data.message || "Cancellation is not allowed.");
+            if (data.success) {
+              setBookings((prev) => prev.filter((b) => b._id !== booking._id));
+            } else {
+              Alert.alert("Notice", data.message || "Cancellation is not allowed.");
+            }
+          } catch (err) {
+            console.log("Cancel Error:", err);
+            Alert.alert("Error", "Something went wrong cancelling the booking.");
+          }
+        }
       }
-    } catch (err) {
-      console.log("Cancel Error:", err);
-      Alert.alert("Error", "Something went wrong cancelling the booking.");
-    }
+    ]);
   };
 
   const payForBooking = async (booking) => {
@@ -186,7 +202,7 @@ export default function StudentDashboard() {
       pathname: `/payment/${booking._id}`,
       params: {
         bookingId: booking._id,
-        amount: booking.price || 500,
+        amount: booking.amount || booking.price || 500,
         serviceTitle: booking.serviceTitle,
       },
     });
@@ -209,7 +225,7 @@ export default function StudentDashboard() {
         }),
       });
 
-      Alert.alert("Thanks!", "Review submitted successfully 🎉");
+      Alert.alert("Success", "Review submitted successfully 🎉");
       setReviewingBooking(null);
       setRating(5);
       setComment("");
@@ -223,121 +239,149 @@ export default function StudentDashboard() {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color="#4f46e5" />
-        <Text style={{ marginTop: 10, color: "#64748b" }}>Loading dashboard...</Text>
+        <Text style={{ marginTop: 10, color: "#64748b", fontWeight: "500" }}>Loading dashboard...</Text>
       </View>
     );
   }
 
   const totalBookings = bookings.length;
-  const pending = bookings.filter((b) => b.status === "pending").length;
+  const pendingCount = bookings.filter((b) => b.status === "pending").length;
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>🎓 My Bookings & Payments</Text>
+      {/* HEADER SECTION */}
+      <View style={styles.headerContainer}>
+        <View>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+          <Text style={styles.headerSubtitle}>Track and manage your service requests</Text>
+        </View>
+      </View>
 
-      {/* STATS */}
+      {/* STATS CARDS */}
       <View style={styles.statsBox}>
         <View style={styles.statCard}>
           <Text style={styles.statNum}>{totalBookings}</Text>
-          <Text style={styles.statLabel}>Bookings</Text>
+          <Text style={styles.statLabel}>Total Bookings</Text>
         </View>
-
         <View style={styles.statCard}>
-          <Text style={styles.statNum}>{pending}</Text>
+          <Text style={[styles.statNum, { color: "#d97706" }]}>{pendingCount}</Text>
           <Text style={styles.statLabel}>Pending</Text>
         </View>
       </View>
 
-      {/* BOOKINGS & PAYMENTS LIST */}
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* MAIN LIST */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5" />
+        }
+      >
         {bookings.length === 0 ? (
-          <Text style={styles.noData}>No bookings found!</Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="calendar-outline" size={50} color="#cbd5e1" />
+            <Text style={styles.noDataTitle}>No Bookings Found</Text>
+            <Text style={styles.noDataSubtitle}>You haven't requested any services yet.</Text>
+          </View>
         ) : (
-          bookings.map((b) => (
-            <View key={b._id} style={styles.card}>
-              <Text style={styles.title}>{b.serviceTitle}</Text>
+          bookings.map((b) => {
+            const isPaid = b.paymentStatus === "paid";
+            const displayAmount = b.amount || b.price || 0;
 
-              {/* Redesigned Premium Live Tracking Bar */}
-              <BookingTracker currentStatus={b.status} />
-
-              <View style={styles.metaRow}>
-                <Text style={styles.status}>
-                  Status: <Text style={{ textTransform: "capitalize", color: "#1e293b", fontWeight: "700" }}>{b.status}</Text>
-                </Text>
-
-                <Text style={[styles.status, { color: b.paymentStatus === "paid" ? "#16a34a" : "#dc2626" }]}>
-                  Payment: <Text style={{ textTransform: "capitalize", fontWeight: "700" }}>{b.paymentStatus || "unpaid"}</Text>
-                </Text>
-              </View>
-
-              {b.refundStatus && b.refundStatus !== "none" && (
-                <Text style={[styles.status, { color: "#d97706", marginTop: 4 }]}>
-                  Refund: <Text style={{ textTransform: "capitalize" }}>{b.refundStatus}</Text>
-                </Text>
-              )}
-
-              <View style={styles.actionRow}>
-                {b.paymentStatus !== "paid" && b.status !== "cancelled" && (
-                  <TouchableOpacity
-                    onPress={() => payForBooking(b)}
-                    style={styles.payBtn}
-                  >
-                    <Ionicons name="card-outline" size={16} color="#fff" style={{ marginRight: 5 }} />
-                    <Text style={styles.btnText}>Pay Now</Text>
-                  </TouchableOpacity>
-                )}
-
-                {b.status === "pending" && (
-                  <TouchableOpacity
-                    onPress={() => cancelBooking(b)}
-                    style={styles.cancelBtn}
-                  >
-                    <Ionicons name="close-circle-outline" size={16} color="#fff" style={{ marginRight: 5 }} />
-                    <Text style={styles.btnText}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  onPress={() => setReviewingBooking(reviewingBooking?._id === b._id ? null : b)}
-                  style={styles.reviewBtn}
-                >
-                  <Ionicons name="star-outline" size={16} color="#fff" style={{ marginRight: 5 }} />
-                  <Text style={styles.btnText}>Review</Text>
-                </TouchableOpacity>
-              </View>
-
-              {reviewingBooking?._id === b._id && (
-                <View style={styles.reviewBox}>
-                  <Text style={{ marginBottom: 5, fontWeight: "600", color: "#1e293b" }}>Rate Service:</Text>
-
-                  <View style={{ flexDirection: "row", marginBottom: 5 }}>
-                    {[1, 2, 3, 4, 5].map((r) => (
-                      <TouchableOpacity key={r} onPress={() => setRating(r)}>
-                        <Text style={{ fontSize: 24, marginRight: 5 }}>
-                          {r <= rating ? "⭐" : "☆"}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+            return (
+              <View key={b._id} style={styles.card}>
+                {/* CARD TOP INFO */}
+                <View style={styles.cardTopRow}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.title} numberOfLines={1}>{b.serviceTitle || "Service Booking"}</Text>
+                    <Text style={styles.providerText}>Provider: {b.providerEmail || "N/A"}</Text>
                   </View>
+                  <View style={styles.amountBadge}>
+                    <Text style={styles.amountText}>৳{displayAmount}</Text>
+                  </View>
+                </View>
 
-                  <TextInput
-                    placeholder="Write your comment here..."
-                    placeholderTextColor="#94a3b8"
-                    value={comment}
-                    onChangeText={setComment}
-                    style={styles.input}
-                  />
+                {/* TRACKER */}
+                <BookingTracker currentStatus={b.status} />
 
-                  <TouchableOpacity
-                    onPress={() => submitReview(b)}
-                    style={styles.submitBtn}
-                  >
-                    <Text style={styles.btnText}>Submit Review</Text>
+                {/* STATUS & PAYMENT INFO */}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Status</Text>
+                    <Text style={[styles.metaValue, { textTransform: "capitalize", color: "#0f172a" }]}>
+                      {b.status}
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Payment</Text>
+                    <Text style={[styles.metaValue, { color: isPaid ? "#059669" : "#dc2626", textTransform: "uppercase" }]}>
+                      {b.paymentStatus || "Unpaid"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Date</Text>
+                    <Text style={styles.metaValue}>
+                      {b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Recent"}
+                    </Text>
+                  </View>
+                </View>
+
+                {b.refundStatus && b.refundStatus !== "none" && (
+                  <View style={styles.refundBox}>
+                    <Ionicons name="information-circle-outline" size={14} color="#d97706" style={{ marginRight: 4 }} />
+                    <Text style={{ fontSize: 12, color: "#d97706", fontWeight: "600" }}>
+                      Refund Status: <Text style={{ textTransform: "capitalize" }}>{b.refundStatus}</Text>
+                    </Text>
+                  </View>
+                )}
+
+                {/* ACTION BUTTONS */}
+                <View style={styles.actionRow}>
+                  {!isPaid && b.status !== "cancelled" && (
+                    <TouchableOpacity onPress={() => payForBooking(b)} style={styles.payBtn} activeOpacity={0.8}>
+                      <Ionicons name="card-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={styles.btnText}>Pay Now</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {b.status === "pending" && (
+                    <TouchableOpacity onPress={() => cancelBooking(b)} style={styles.cancelBtn} activeOpacity={0.8}>
+                      <Ionicons name="close-circle-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={styles.btnText}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity onPress={() => setReviewingBooking(reviewingBooking?._id === b._id ? null : b)} style={styles.reviewBtn} activeOpacity={0.8}>
+                    <Ionicons name="star-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={styles.btnText}>Review</Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          ))
+
+                {/* REVIEW INPUT BOX */}
+                {reviewingBooking?._id === b._id && (
+                  <View style={styles.reviewBox}>
+                    <Text style={{ marginBottom: 6, fontWeight: "700", color: "#1e293b", fontSize: 13 }}>Rate Your Experience</Text>
+                    <View style={{ flexDirection: "row", marginBottom: 8 }}>
+                      {[1, 2, 3, 4, 5].map((r) => (
+                        <TouchableOpacity key={r} onPress={() => setRating(r)}>
+                          <Text style={{ fontSize: 22, marginRight: 6 }}>{r <= rating ? "⭐" : "☆"}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TextInput
+                      placeholder="Write your feedback..."
+                      placeholderTextColor="#94a3b8"
+                      value={comment}
+                      onChangeText={setComment}
+                      style={styles.input}
+                    />
+                    <TouchableOpacity onPress={() => submitReview(b)} style={styles.submitBtn} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>Submit Review</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -348,9 +392,9 @@ export default function StudentDashboard() {
 const trackerStyles = StyleSheet.create({
   container: {
     backgroundColor: "#f8fafc",
-    padding: 14,
-    borderRadius: 14,
-    marginVertical: 12,
+    padding: 12,
+    borderRadius: 12,
+    marginVertical: 10,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -358,41 +402,38 @@ const trackerStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#475569",
   },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#dbeafe",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#93c5fd",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
   liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: "#2563eb",
     marginRight: 4,
   },
   liveText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: "#2563eb",
-    letterSpacing: 0.5,
   },
   trackerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     position: "relative",
   },
   stepWrapper: {
@@ -402,26 +443,25 @@ const trackerStyles = StyleSheet.create({
   },
   line: {
     position: "absolute",
-    top: 16,
+    top: 14,
     left: "50%",
     width: "100%",
-    height: 4,
-    backgroundColor: "#cbd5e1",
+    height: 3,
+    backgroundColor: "#e2e8f0",
     zIndex: 1,
-    borderRadius: 2,
   },
   completedLine: {
     backgroundColor: "#4f46e5",
   },
   circle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#e2e8f0",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#f1f5f9",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 2,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#cbd5e1",
   },
   completedCircle: {
@@ -431,73 +471,107 @@ const trackerStyles = StyleSheet.create({
   currentCircle: {
     backgroundColor: "#ffffff",
     borderColor: "#4f46e5",
-    borderWidth: 3,
-    transform: [{ scale: 1.15 }],
-    shadowColor: "#4f46e5",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    borderWidth: 2.5,
+    transform: [{ scale: 1.1 }],
+    elevation: 3,
   },
   label: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#94a3b8",
-    marginTop: 8,
+    marginTop: 6,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "500",
   },
   completedLabel: {
     color: "#334155",
-    fontWeight: "700",
+    fontWeight: "600",
   },
   currentLabel: {
     color: "#4f46e5",
-    fontWeight: "900",
+    fontWeight: "800",
   },
 });
 
 // ================= STYLES =================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f1f5f9", padding: 15 },
-  header: { fontSize: 24, fontWeight: "900", marginBottom: 12, color: "#0f172a" },
+  container: { flex: 1, backgroundColor: "#f8fafc", paddingHorizontal: 16, paddingTop: 10 },
+  headerContainer: { marginBottom: 14 },
+  headerTitle: { fontSize: 22, fontWeight: "800", color: "#0f172a" },
+  headerSubtitle: { fontSize: 13, color: "#64748b", marginTop: 2 },
   loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8fafc" },
-  statsBox: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
+  statsBox: { flexDirection: "row", gap: 10, marginBottom: 14 },
   statCard: {
     flex: 1,
     backgroundColor: "#ffffff",
-    marginHorizontal: 4,
     padding: 14,
     borderRadius: 14,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 1,
   },
-  statNum: { fontSize: 20, fontWeight: "900", color: "#4f46e5" },
+  statNum: { fontSize: 20, fontWeight: "800", color: "#4f46e5" },
   statLabel: { fontSize: 12, color: "#64748b", marginTop: 2, fontWeight: "600" },
   card: {
     backgroundColor: "#ffffff",
     padding: 16,
-    marginVertical: 8,
+    marginBottom: 14,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  title: { fontSize: 17, fontWeight: "800", color: "#0f172a" },
-  metaRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
-  status: { fontWeight: "600", fontSize: 13, color: "#475569" },
-  actionRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
-  btnText: { color: "#ffffff", fontWeight: "700", fontSize: 13 },
-  payBtn: { flex: 1, flexDirection: "row", backgroundColor: "#7c3aed", padding: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 4 },
-  cancelBtn: { flex: 1, flexDirection: "row", backgroundColor: "#dc2626", padding: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", marginHorizontal: 4 },
-  reviewBtn: { flex: 1, flexDirection: "row", backgroundColor: "#d97706", padding: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", marginLeft: 4 },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  title: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
+  providerText: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  amountBadge: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  amountText: { fontSize: 14, fontWeight: "800", color: "#0f172a" },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#f8fafc",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  metaItem: { alignItems: "center", flex: 1 },
+  metaLabel: { fontSize: 10, color: "#64748b", fontWeight: "600", textTransform: "uppercase" },
+  metaValue: { fontSize: 12, fontWeight: "700", color: "#334155", marginTop: 2 },
+  refundBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fffbeb",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#fde68a",
+  },
+  actionRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  btnText: { color: "#ffffff", fontWeight: "700", fontSize: 12 },
+  payBtn: { flex: 1, flexDirection: "row", backgroundColor: "#7c3aed", paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  cancelBtn: { flex: 1, flexDirection: "row", backgroundColor: "#dc2626", paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  reviewBtn: { flex: 1, flexDirection: "row", backgroundColor: "#d97706", paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   reviewBox: { marginTop: 12, backgroundColor: "#f8fafc", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0" },
   input: {
     borderWidth: 1,
@@ -505,11 +579,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    marginTop: 6,
     backgroundColor: "#ffffff",
     fontSize: 13,
     color: "#0f172a",
   },
-  submitBtn: { marginTop: 10, backgroundColor: "#059669", padding: 10, borderRadius: 8, alignItems: "center" },
-  noData: { textAlign: "center", color: "#94a3b8", marginTop: 40, fontSize: 15, fontWeight: "600" },
+  submitBtn: { marginTop: 8, backgroundColor: "#059669", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
+  emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 60, paddingHorizontal: 20 },
+  noDataTitle: { fontSize: 16, fontWeight: "700", color: "#1e293b", marginTop: 12 },
+  noDataSubtitle: { textAlign: "center", color: "#64748b", fontSize: 13, marginTop: 4 },
 });

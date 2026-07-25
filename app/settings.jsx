@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location"; // ১. লোকেশন প্যাকেজ ইমপোর্ট করা হয়েছে
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -25,8 +26,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     fetchUserData();
-    loadThemePreference();
-    loadNotificationPreference();
+    loadPreferences(); // ২. সব প্রেফারেন্স একসাথে লোড করার ফাংশন কল করা হয়েছে
   }, []);
 
   const fetchUserData = async () => {
@@ -52,25 +52,24 @@ export default function SettingsScreen() {
       });
     }
   };
-  const loadThemePreference = async () => {
+
+  // ৩. ডার্ক মোড, নোটিফিকেশন এবং লোকেশন স্টেট একসাথে লোড করার নতুন ফাংশন
+  const loadPreferences = async () => {
     try {
       const savedTheme = await AsyncStorage.getItem("theme_mode");
-      if (savedTheme === "dark") {
-        setDarkMode(true);
-      }
-    } catch (err) {
-      console.log("Error loading theme:", err);
-    }
-  };
+      if (savedTheme === "dark") setDarkMode(true);
 
-  const loadNotificationPreference = async () => {
-    try {
-      const savedStatus = await AsyncStorage.getItem("notification_enabled");
-      if (savedStatus !== null) {
-        setNotification(JSON.parse(savedStatus));
+      const savedNotification = await AsyncStorage.getItem("notification_enabled");
+      if (savedNotification !== null) {
+        setNotification(JSON.parse(savedNotification));
+      }
+
+      const savedLocation = await AsyncStorage.getItem("location_enabled");
+      if (savedLocation !== null) {
+        setLocation(JSON.parse(savedLocation));
       }
     } catch (err) {
-      console.log("Error loading notification status:", err);
+      console.log("Error loading preferences:", err);
     }
   };
 
@@ -87,13 +86,38 @@ export default function SettingsScreen() {
     setNotification(value);
     try {
       await AsyncStorage.setItem("notification_enabled", JSON.stringify(value));
-      if (value) {
-        Alert.alert("Notifications", "Push notifications enabled.");
-      } else {
-        Alert.alert("Notifications", "Push notifications turned off.");
-      }
+      Alert.alert(
+        "Notifications",
+        value ? "Push notifications enabled." : "Push notifications turned off."
+      );
     } catch (err) {
       console.log("Error saving notification preference:", err);
+    }
+  };
+
+  // ৪. লোকেশন টগল করার ডাইনামিক ফাংশন (অন করলে জিপিএস পারমিশন চাইবে)
+  const toggleLocation = async (value) => {
+    setLocation(value);
+    try {
+      await AsyncStorage.setItem("location_enabled", JSON.stringify(value));
+      
+      if (value) {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert("Permission Denied", "Location permission is required.");
+          setLocation(false);
+          await AsyncStorage.setItem("location_enabled", JSON.stringify(false));
+          return;
+        }
+
+        let currentLocation = await Location.getCurrentPositionAsync({});
+        console.log("Current Coordinates:", currentLocation.coords);
+        Alert.alert("Location Access", "Location services enabled successfully.");
+      } else {
+        Alert.alert("Location Access", "Location services disabled.");
+      }
+    } catch (err) {
+      console.log("Error saving location preference:", err);
     }
   };
 
@@ -170,7 +194,7 @@ export default function SettingsScreen() {
         </View>
         <Switch 
           value={location} 
-          onValueChange={setLocation}
+          onValueChange={toggleLocation} // ৫. লোকেশন টগলের সাথে ডাইনামিক ফাংশন যুক্ত করা হয়েছে
           trackColor={{ false: "#cbd5e1", true: "#818cf8" }}
           thumbColor={location ? "#4f46e5" : "#f4f3f4"}
         />
@@ -198,6 +222,7 @@ export default function SettingsScreen() {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -278,16 +303,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#dc2626",
     padding: 15,
-    borderRadius: 12,
-    marginTop: 25,
-    marginBottom: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#dc2626",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   logoutText: {
     color: "white",
@@ -314,7 +329,6 @@ const lightStyles = StyleSheet.create({
   },
 });
 
-// ডার্ক মোড থিম কালার
 const darkStyles = StyleSheet.create({
   container: {
     backgroundColor: "#0f172a",
