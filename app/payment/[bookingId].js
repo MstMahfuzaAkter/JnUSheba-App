@@ -91,7 +91,6 @@ export default function PaymentScreen() {
       Alert.alert("Error", "Network error while starting payment.");
       router.back();
     } finally {
-      // ✅ এটি নিশ্চিত করবে যে API কল সফল হোক বা ব্যর্থ, লোডিং বন্ধ হয়ে স্ক্রিন চলে আসবে
       setLoading(false);
     }
   };
