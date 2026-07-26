@@ -194,7 +194,7 @@ export default function SettingsScreen() {
         </View>
         <Switch 
           value={location} 
-          onValueChange={toggleLocation} // ৫. লোকেশন টগলের সাথে ডাইনামিক ফাংশন যুক্ত করা হয়েছে
+          onValueChange={toggleLocation} 
           trackColor={{ false: "#cbd5e1", true: "#818cf8" }}
           thumbColor={location ? "#4f46e5" : "#f4f3f4"}
         />

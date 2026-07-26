@@ -244,7 +244,7 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <Action icon="calendar" title="Manage Bookings" onPress={() => router.push("/my-bookings")} />
+          <Action icon="calendar" title="Manage Bookings" onPress={() => router.push("/manage-booking")} />
           <Action icon="history" title="Transaction History" onPress={() => router.push("/history")} />
         </View>
       )}

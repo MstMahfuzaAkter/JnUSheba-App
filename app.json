@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mahfuza.frontend"
+      "package": "com.mahfuza.jnushebalink"
     },
     "web": {
       "bundler": "metro",

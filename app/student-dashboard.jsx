@@ -28,7 +28,9 @@ const STEPS = [
   { key: "completed", label: "Completed", icon: "ribbon-outline" },
 ];
 
-function BookingTracker({ currentStatus }) {
+function BookingTracker({ booking, router }) {
+  const currentStatus = booking.status;
+
   const getStepIndex = (status) => {
     switch (status) {
       case "pending": return 0;
@@ -42,6 +44,17 @@ function BookingTracker({ currentStatus }) {
 
   const currentIndex = getStepIndex(currentStatus);
 
+  const openChat = () => {
+    router.push({
+      pathname: `/chat/${booking._id}`,
+      params: {
+        bookingId: booking._id,
+        providerEmail: booking.providerEmail,
+        serviceTitle: booking.serviceTitle,
+      },
+    });
+  };
+
   return (
     <View style={trackerStyles.container}>
       <View style={trackerStyles.headerRow}>
@@ -49,12 +62,20 @@ function BookingTracker({ currentStatus }) {
           <Ionicons name="pulse" size={14} color="#4f46e5" style={{ marginRight: 6 }} />
           <Text style={trackerStyles.headerTitle}>Live Tracking Status</Text>
         </View>
-        <View style={trackerStyles.liveBadge}>
-          <View style={trackerStyles.liveDot} />
-          <Text style={trackerStyles.liveText}>LIVE</Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={trackerStyles.liveBadge}>
+            <View style={trackerStyles.liveDot} />
+            <Text style={trackerStyles.liveText}>LIVE</Text>
+          </View>
+
+          <TouchableOpacity onPress={openChat} style={trackerStyles.chatBtn} activeOpacity={0.8}>
+            <Ionicons name="chatbubbles-outline" size={13} color="#fff" style={{ marginRight: 3 }} />
+            <Text style={trackerStyles.chatBtnText}>Chat</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      
+
       <View style={trackerStyles.trackerContainer}>
         {STEPS.map((step, index) => {
           const isCompleted = index <= currentIndex;
@@ -110,7 +131,7 @@ export default function StudentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [reviewingBooking, setReviewingBooking] = useState(null);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState();
   const [comment, setComment] = useState("");
 
   const loadBookings = async (isRefresh = false) => {
@@ -218,10 +239,11 @@ export default function StudentDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId: booking._id,
+          serviceId: booking.serviceId || booking.service?._id,
           providerEmail: booking.providerEmail,
-          userEmail: user.email,
-          rating,
-          comment,
+          userEmail: user.email || user.customerEmail,
+          rating: Number(rating),
+          comment: comment.trim(),
         }),
       });
 
@@ -229,6 +251,7 @@ export default function StudentDashboard() {
       setReviewingBooking(null);
       setRating(5);
       setComment("");
+      loadBookings(true); // রিফ্রেশ করে ইজরিভিউ আপডেট করে নেওয়া
     } catch (err) {
       console.log("Review Error:", err);
       Alert.alert("Error", "Failed to submit review.");
@@ -270,7 +293,7 @@ export default function StudentDashboard() {
       </View>
 
       {/* MAIN LIST */}
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5" />
@@ -300,8 +323,8 @@ export default function StudentDashboard() {
                   </View>
                 </View>
 
-                {/* TRACKER */}
-                <BookingTracker currentStatus={b.status} />
+                {/* TRACKER WITH CHAT BUTTON */}
+                <BookingTracker booking={b} router={router} />
 
                 {/* STATUS & PAYMENT INFO */}
                 <View style={styles.metaRow}>
@@ -350,10 +373,21 @@ export default function StudentDashboard() {
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity onPress={() => setReviewingBooking(reviewingBooking?._id === b._id ? null : b)} style={styles.reviewBtn} activeOpacity={0.8}>
-                    <Ionicons name="star-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={styles.btnText}>Review</Text>
-                  </TouchableOpacity>
+                  {!b.isReviewed ? (
+                    <TouchableOpacity
+                      onPress={() => setReviewingBooking(reviewingBooking?._id === b._id ? null : b)}
+                      style={styles.reviewBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="star-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={styles.btnText}>Review</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.alreadyReviewedBtn}>
+                      <Ionicons name="checkmark-circle" size={14} color="#059669" style={{ marginRight: 4 }} />
+                      <Text style={{ color: "#059669", fontWeight: "700", fontSize: 12 }}>Reviewed</Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* REVIEW INPUT BOX */}
@@ -428,6 +462,19 @@ const trackerStyles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     color: "#2563eb",
+  },
+  chatBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4f46e5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  chatBtnText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#ffffff",
   },
   trackerContainer: {
     flexDirection: "row",
@@ -582,6 +629,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     fontSize: 13,
     color: "#0f172a",
+  },
+  alreadyReviewedBtn: {
+    flex: 1, 
+    flexDirection: "row", 
+    backgroundColor: "#d1fae5", 
+    paddingVertical: 10, 
+    borderRadius: 10, 
+    alignItems: "center", 
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#a7f3d0"
   },
   submitBtn: { marginTop: 8, backgroundColor: "#059669", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
   emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 60, paddingHorizontal: 20 },

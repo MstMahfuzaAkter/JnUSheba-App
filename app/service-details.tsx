@@ -59,23 +59,30 @@ export default function ServiceDetails() {
   useFocusEffect(
     useCallback(() => {
       if (id) {
+        fetchService(); // রিফ্রেশ করলে সার্ভিস ও রিভিউ আপডেট হয়ে যাবে
         checkBookedStatus();
       }
     }, [id])
   );
 
   useEffect(() => {
-    if (service?.providerEmail) {
-      loadReviews(service.providerEmail);
+    if (service?.providerEmail || id) {
+      loadReviews(service?.providerEmail, id);
     }
-  }, [service]);
+  }, [service, id]);
 
   // ================= FETCH SERVICE =================
   const fetchService = async () => {
     try {
       const res = await fetch(`${API}/services/${id}`);
       const data = await res.json();
-      setService(data.data || data);
+      const serviceData = data.data || data;
+      setService(serviceData);
+
+      // যদি সার্ভিসের ভেতর অলরেডি reviews অ্যারে থাকে সেখান থেকেও ধরতে পারেন
+      if (serviceData?.reviews && Array.isArray(serviceData.reviews) && serviceData.reviews.length > 0) {
+        setReviews(serviceData.reviews);
+      }
     } catch (err) {
       Alert.alert("Error", "Failed to load service");
     } finally {
@@ -84,12 +91,24 @@ export default function ServiceDetails() {
   };
 
   // ================= REVIEWS =================
-  const loadReviews = async (providerEmail: string) => {
+  const loadReviews = async (providerEmail: string, serviceId: string) => {
     try {
       setLoadingReviews(true);
-      const res = await fetch(`${API}/reviews/${providerEmail}`);
-      const data = await res.json();
-      setReviews(Array.isArray(data) ? data : data.reviews || []);
+      
+      // প্রথমে প্রোভাইডার ইমেইল দিয়ে ট্রাই করা, না পেলে সার্ভিস আইডি দিয়ে ফেচ করা যাবে
+      let fetchedReviews = [];
+      if (providerEmail) {
+        const res = await fetch(`${API}/reviews/${providerEmail}`);
+        const data = await res.json();
+        fetchedReviews = Array.isArray(data) ? data : data.reviews || [];
+      }
+
+      // যদি প্রোভাইডার ইমেইল দিয়ে রিভিউ না পাওয়া যায় বা সার্ভিস অবজেক্টের নিজস্ব রিভিউ থাকে
+      if (fetchedReviews.length === 0 && service?.reviews) {
+        fetchedReviews = service.reviews;
+      }
+
+      setReviews(fetchedReviews);
     } catch (err) {
       console.log(err);
     } finally {
@@ -206,7 +225,7 @@ export default function ServiceDetails() {
         </View>
       </View>
 
-      {/* INFO CARD (All Basic Information Added) */}
+      {/* INFO CARD */}
       <View style={styles.card}>
         <View style={styles.priceRow}>
           <Text style={styles.price}>
@@ -303,30 +322,30 @@ export default function ServiceDetails() {
       </View>
 
       {/* ================= REVIEWS ================= */}
-      <View style={[styles.card, { marginBottom: 40 }]}>
-        <Text style={styles.sectionTitle}>⭐ Reviews</Text>
+<View style={[styles.card, { marginBottom: 40 }]}>
+  <Text style={styles.sectionTitle}>⭐ Reviews ({reviews.length})</Text>
 
-        {loadingReviews ? (
-          <ActivityIndicator size="small" color={COLORS.header} />
-        ) : reviews.length === 0 ? (
-          <Text style={{ color: COLORS.subtitle }}>No reviews yet</Text>
-        ) : (
-          reviews.map((r) => (
-            <View key={r._id || Math.random()} style={styles.reviewCard}>
-              <View style={styles.reviewTop}>
-                <Text style={styles.rating}>⭐ {r.rating}/5</Text>
-                <Text style={styles.email}>{r.userEmail}</Text>
-              </View>
+  {loadingReviews ? (
+    <ActivityIndicator size="small" color={COLORS.header} />
+  ) : reviews.length === 0 ? (
+    <Text style={{ color: COLORS.subtitle }}>No reviews yet</Text>
+  ) : (
+    reviews.map((r) => (
+      <View key={r._id || Math.random()} style={styles.reviewCard}>
+        <View style={styles.reviewTop}>
+          <Text style={styles.rating}>⭐ {r.rating}</Text>
+          <Text style={styles.email}>{r.userEmail}</Text>
+        </View>
 
-              <Text style={styles.comment}>{r.comment}</Text>
+        <Text style={styles.comment}>{r.comment}</Text>
 
-              <Text style={styles.date}>
-                {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}
-              </Text>
-            </View>
-          ))
-        )}
+        <Text style={styles.date}>
+          {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}
+        </Text>
       </View>
+    ))
+  )}
+</View>
     </ScrollView>
   );
 }

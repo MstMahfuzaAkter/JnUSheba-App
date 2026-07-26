@@ -162,7 +162,7 @@ export default function ProviderDashboard() {
 
       setServicesCount(services.length);
       setBookingsCount(bookings.length);
-      setMyServices(services.slice(0, 4)); // Keep top 4 services for direct preview
+      setMyServices(services.slice(0, 4));
 
       if (bookings.length > 0) {
         setLatestBooking(bookings[0]);
@@ -312,7 +312,6 @@ export default function ProviderDashboard() {
             ) : (
               <Text style={styles.heroRevenueAmount}>৳ {totalRevenue.toLocaleString("en-BD")}</Text>
             )}
-            
           </RNView>
           <RNView style={styles.heroWalletIconBox}>
             <Ionicons name="wallet" size={28} color="#c084fc" />
@@ -355,6 +354,19 @@ export default function ProviderDashboard() {
                   <Text style={styles.clientNameText}>{latestBooking.customerName || "Customer"}</Text>
                 </RNView>
               </RNView>
+
+              {/* CHAT WITH CLIENT BUTTON */}
+              <TouchableOpacity
+                style={styles.chatIconButton}
+                onPress={() => router.push({
+                  pathname: `/chat/${latestBooking._id}`,
+                  params: { receiver: latestBooking.customerEmail }
+                })}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chatbubbles-outline" size={16} color="#4f46e5" />
+                <Text style={styles.chatButtonText}>Chat with Client</Text>
+              </TouchableOpacity>
               
               <BookingTracker currentStatus={latestBooking.status} />
 
@@ -779,22 +791,6 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     letterSpacing: -0.5,
   },
-  todayEarnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  trendIconContainer: {
-    backgroundColor: "rgba(16, 185, 129, 0.2)",
-    padding: 3,
-    borderRadius: 6,
-  },
-  todayEarnText: {
-    fontSize: 11,
-    color: "#e2e8f0",
-    fontWeight: "500",
-  },
   heroWalletIconBox: {
     width: 50,
     height: 50,
@@ -881,7 +877,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 6,
   },
   liveServiceTitle: {
     fontSize: 14,
@@ -902,6 +898,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: "#475569",
+  },
+  chatIconButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e0e7ff",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 6,
+    marginBottom: 10,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  chatButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4f46e5",
   },
   actionContainer: {
     marginTop: 10,
@@ -971,12 +985,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
     shadowRadius: 4,
-    elevation: 1,
   },
   serviceImage: {
     width: "100%",
     height: 90,
-    backgroundColor: "#f1f5f9",
   },
   servicePlaceholderImage: {
     width: "100%",
@@ -1031,29 +1043,30 @@ const styles = StyleSheet.create({
   },
   emptyTxText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#94a3b8",
     marginTop: 8,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   txCardList: {
-    gap: 10,
+    gap: 8,
   },
   txItemCard: {
-    backgroundColor: "#ffffff",
-    padding: 14,
-    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    gap: 12,
   },
   txIconBox: {
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#f0fdf4",
+    justifyContent: "center",
+    alignItems: "center",
   },
   txDetails: {
     flex: 1,
@@ -1066,8 +1079,7 @@ const styles = StyleSheet.create({
   txSubText: {
     fontSize: 10,
     color: "#64748b",
-    marginTop: 3,
-    fontWeight: "500",
+    marginTop: 2,
   },
   txAmount: {
     fontSize: 13,
@@ -1078,9 +1090,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   menuGroupTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#334155",
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
     marginBottom: 4,
   },
   menuCard: {
@@ -1091,22 +1105,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    gap: 12,
   },
   iconWrapper: {
-    width: 42,
-    height: 42,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   cardContent: {
     flex: 1,
-    marginLeft: 14,
   },
   cardTitle: {
     fontSize: 14,
@@ -1116,19 +1125,17 @@ const styles = StyleSheet.create({
   cardDesc: {
     fontSize: 11,
     color: "#64748b",
-    marginTop: 2,
-    fontWeight: "500",
+    marginTop: 1,
   },
   badge: {
-    backgroundColor: "#4f46e5",
-    paddingHorizontal: 7,
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 8,
-    marginRight: 8,
+    borderRadius: 10,
   },
   badgeText: {
     color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10,
+    fontWeight: "800",
   },
 });

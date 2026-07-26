@@ -33,12 +33,6 @@ const API = "https://jnushebaserver.onrender.com";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
-// FIX: this was hardcoded to "Times New Roman" for every weight, but
-// useFonts() below actually loads the Poppins family. Since the string
-// here didn't match any loaded font name, RN silently fell back to the
-// system font everywhere — every "bold"/"extrabold" label rendered in the
-// same weight as "regular". Restored to the Poppins names that are
-// actually registered by useFonts().
 const FONTS = {
   regular: "Poppins_400Regular",
   medium: "Poppins_500Medium",
@@ -201,9 +195,7 @@ const CAMPUS_ZONES = [
 ];
 
 export default function ServicesScreen() {
-  // Load the one font family used across the whole screen. Hooks must run
-  // unconditionally and in the same order every render, so this stays at
-  // the top before any early return.
+  
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -455,16 +447,10 @@ export default function ServicesScreen() {
           <View style={styles.ratingReviewRow}>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={12} color={COLORS.gold} />
-              {/* FIX: this used to hardcode "5"/"5 " here whenever a
-                  service had no rating yet, which showed a fake perfect
-                  score for brand-new listings. Restored to "New" so it
-                  honestly reflects that the backend has no rating for it
-                  (rating stays 0 / totalReviews 0 until a real review
-                  comes in via POST /reviews). */}
               <Text style={styles.ratingReviewText}>{hasRating ? item.rating!.toFixed(1) : "New"}</Text>
             </View>
             {hasRating && (
-              <Text style={styles.reviewCountText}>({item.totalReviews || 0} reviews)</Text>
+              <Text style={styles.reviewCountText}>({item.totalReviews} reviews)</Text>
             )}
             <View style={styles.availabilityRow}>
               <View style={[styles.availabilityDot, { backgroundColor: availabilityMeta.color }]} />
@@ -807,7 +793,7 @@ export default function ServicesScreen() {
             renderItem={({ item }) => (
               <View style={styles.reviewCard}>
                 <View style={styles.reviewTop}>
-                  <Text style={styles.reviewRatingText}>⭐ {item.rating}/5</Text>
+                  <Text style={styles.reviewRatingText}>⭐ {item.rating}</Text>
                   <Text style={styles.reviewEmailText} numberOfLines={1}>
                     {maskEmail(item.userEmail)}
                   </Text>
